@@ -29,22 +29,6 @@ When adding a new release, check if the corresponding version in "Possible Outda
 
 | Week Starting        | CI Duty  |
 |----------------------|----------|
-| 2022-06-27T01:00:00Z | lberk    |
-| 2022-07-04T01:00:00Z | matzew   |
-| 2022-07-11T01:00:00Z | pierDipi |
-| 2022-07-18T01:00:00Z | aliok    |
-| 2022-07-25T01:00:00Z | lberk    |
-| 2022-08-01T01:00:00Z | matzew   |
-| 2022-08-08T01:00:00Z | pierDipi |
-| 2022-08-15T01:00:00Z | aliok    |
-| 2022-08-22T01:00:00Z | lberk    |
-| 2022-08-29T01:00:00Z | matzew   |
-| 2022-09-05T01:00:00Z | pierDipi |
-| 2022-09-12T01:00:00Z | aliok    |
-| 2022-09-19T01:00:00Z | lberk    |
-| 2022-09-26T01:00:00Z | matzew   |
-| 2022-10-03T01:00:00Z | pierDipi |
-| 2022-10-10T01:00:00Z | aliok    |
 | 2022-10-17T01:00:00Z | lberk    |
 | 2022-10-24T01:00:00Z | matzew   |
 | 2022-10-31T01:00:00Z | pierDipi |
@@ -53,8 +37,8 @@ When adding a new release, check if the corresponding version in "Possible Outda
 | 2022-11-21T01:00:00Z | matzew   |
 | 2022-11-28T01:00:00Z | pierDipi |
 | 2022-12-05T01:00:00Z | matzew   |
-| 2022-12-12T01:00:00Z | lberk    |
-| 2022-12-19T01:00:00Z | aliok    |
+| 2022-12-12T01:00:00Z | creydr   |
+| 2022-12-19T01:00:00Z | lberk    |
 | 2022-12-26T01:00:00Z | aliok    |
 
 ## How this repository works ?
