@@ -1,0 +1,166 @@
+diff --git a/config/brokers/mt-channel-broker/deployments/broker-filter.yaml b/config/brokers/mt-channel-broker/deployments/broker-filter.yaml
+index 924c132fd..49d53ab9e 100644
+--- a/config/brokers/mt-channel-broker/deployments/broker-filter.yaml
++++ b/config/brokers/mt-channel-broker/deployments/broker-filter.yaml
+@@ -97,8 +97,6 @@ spec:
+           capabilities:
+             drop:
+             - ALL
+-          seccompProfile:
+-            type: RuntimeDefault
+ 
+ ---
+ 
+diff --git a/config/brokers/mt-channel-broker/deployments/broker-ingress.yaml b/config/brokers/mt-channel-broker/deployments/broker-ingress.yaml
+index d8f5ab9a2..7099f5689 100644
+--- a/config/brokers/mt-channel-broker/deployments/broker-ingress.yaml
++++ b/config/brokers/mt-channel-broker/deployments/broker-ingress.yaml
+@@ -97,8 +97,6 @@ spec:
+           capabilities:
+             drop:
+             - ALL
+-          seccompProfile:
+-            type: RuntimeDefault
+ 
+ ---
+ 
+diff --git a/config/brokers/mt-channel-broker/deployments/controller.yaml b/config/brokers/mt-channel-broker/deployments/controller.yaml
+index d4e853b7c..a0eb8583b 100644
+--- a/config/brokers/mt-channel-broker/deployments/controller.yaml
++++ b/config/brokers/mt-channel-broker/deployments/controller.yaml
+@@ -81,8 +81,6 @@ spec:
+           capabilities:
+             drop:
+             - ALL
+-          seccompProfile:
+-            type: RuntimeDefault
+ 
+         ports:
+         - name: metrics
+diff --git a/config/channels/in-memory-channel/deployments/controller.yaml b/config/channels/in-memory-channel/deployments/controller.yaml
+index 42ef5e957..17ed17d7f 100644
+--- a/config/channels/in-memory-channel/deployments/controller.yaml
++++ b/config/channels/in-memory-channel/deployments/controller.yaml
+@@ -78,8 +78,6 @@ spec:
+           capabilities:
+             drop:
+             - ALL
+-          seccompProfile:
+-            type: RuntimeDefault
+ 
+         ports:
+         - name: metrics
+diff --git a/config/channels/in-memory-channel/deployments/dispatcher.yaml b/config/channels/in-memory-channel/deployments/dispatcher.yaml
+index fc88c6697..240d2b662 100644
+--- a/config/channels/in-memory-channel/deployments/dispatcher.yaml
++++ b/config/channels/in-memory-channel/deployments/dispatcher.yaml
+@@ -95,5 +95,3 @@ spec:
+           capabilities:
+             drop:
+             - ALL
+-          seccompProfile:
+-            type: RuntimeDefault
+diff --git a/config/core/deployments/controller.yaml b/config/core/deployments/controller.yaml
+index d1a38ea62..ddf1259c6 100644
+--- a/config/core/deployments/controller.yaml
++++ b/config/core/deployments/controller.yaml
+@@ -97,8 +97,6 @@ spec:
+           capabilities:
+             drop:
+             - ALL
+-          seccompProfile:
+-            type: RuntimeDefault
+ 
+         livenessProbe:
+           httpGet:
+diff --git a/config/core/deployments/pingsource-mt-adapter.yaml b/config/core/deployments/pingsource-mt-adapter.yaml
+index c48b4ad21..ccf1af351 100644
+--- a/config/core/deployments/pingsource-mt-adapter.yaml
++++ b/config/core/deployments/pingsource-mt-adapter.yaml
+@@ -99,7 +99,5 @@ spec:
+             capabilities:
+               drop:
+               - ALL
+-            seccompProfile:
+-              type: RuntimeDefault
+ 
+       serviceAccountName: pingsource-mt-adapter
+diff --git a/config/core/deployments/webhook.yaml b/config/core/deployments/webhook.yaml
+index 2ba3c1190..1995a25c3 100644
+--- a/config/core/deployments/webhook.yaml
++++ b/config/core/deployments/webhook.yaml
+@@ -101,8 +101,6 @@ spec:
+           capabilities:
+             drop:
+             - ALL
+-          seccompProfile:
+-            type: RuntimeDefault
+ 
+         ports:
+         - name: https-webhook
+diff --git a/config/post-install/storage-version-migrator.yaml b/config/post-install/storage-version-migrator.yaml
+index c2d6d836f..8fcc812e7 100644
+--- a/config/post-install/storage-version-migrator.yaml
++++ b/config/post-install/storage-version-migrator.yaml
+@@ -62,5 +62,3 @@ spec:
+             capabilities:
+               drop:
+               - ALL
+-            seccompProfile:
+-              type: RuntimeDefault
+diff --git a/config/tools/appender/appender.yaml b/config/tools/appender/appender.yaml
+index 169405198..63e9db6fc 100644
+--- a/config/tools/appender/appender.yaml
++++ b/config/tools/appender/appender.yaml
+@@ -35,5 +35,3 @@ spec:
+           capabilities:
+             drop:
+             - ALL
+-          seccompProfile:
+-            type: RuntimeDefault
+diff --git a/config/tools/event-display/event-display.yaml b/config/tools/event-display/event-display.yaml
+index 57538dcc9..fc824255e 100644
+--- a/config/tools/event-display/event-display.yaml
++++ b/config/tools/event-display/event-display.yaml
+@@ -32,5 +32,3 @@ spec:
+           capabilities:
+             drop:
+             - ALL
+-          seccompProfile:
+-            type: RuntimeDefault
+diff --git a/config/tools/heartbeats/heartbeats.yaml b/config/tools/heartbeats/heartbeats.yaml
+index c0753a3c8..1c0ba857e 100644
+--- a/config/tools/heartbeats/heartbeats.yaml
++++ b/config/tools/heartbeats/heartbeats.yaml
+@@ -34,8 +34,6 @@ spec:
+             capabilities:
+               drop:
+               - ALL
+-            seccompProfile:
+-              type: RuntimeDefault
+ 
+   sink:
+     ref:
+diff --git a/config/tools/recordevents/recordevents.yaml b/config/tools/recordevents/recordevents.yaml
+index 3661a16c8..23371182d 100644
+--- a/config/tools/recordevents/recordevents.yaml
++++ b/config/tools/recordevents/recordevents.yaml
+@@ -44,5 +44,3 @@ spec:
+         capabilities:
+           drop:
+           - ALL
+-        seccompProfile:
+-          type: RuntimeDefault
+diff --git a/config/tools/websocket-source/websocket-source.yaml b/config/tools/websocket-source/websocket-source.yaml
+index 844c39845..1a590f667 100644
+--- a/config/tools/websocket-source/websocket-source.yaml
++++ b/config/tools/websocket-source/websocket-source.yaml
+@@ -30,8 +30,6 @@ spec:
+             capabilities:
+               drop:
+               - ALL
+-            seccompProfile:
+-              type: RuntimeDefault
+ 
+   sink:
+     ref:
