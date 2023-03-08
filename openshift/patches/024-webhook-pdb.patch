@@ -1,0 +1,13 @@
+diff --git a/config/core/deployments/webhook-hpa.yaml b/config/core/deployments/webhook-hpa.yaml
+index 45811e552..7483fd880 100644
+--- a/config/core/deployments/webhook-hpa.yaml
++++ b/config/core/deployments/webhook-hpa.yaml
+@@ -49,7 +49,7 @@ metadata:
+     app.kubernetes.io/version: devel
+     app.kubernetes.io/name: knative-eventing
+ spec:
+-  minAvailable: 80%
++  minAvailable: 1
+   selector:
+     matchLabels:
+       app: eventing-webhook

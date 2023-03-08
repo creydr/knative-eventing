@@ -1,0 +1,53 @@
+diff --git a/test/e2e/broker_defaults_webhook_test.go b/test/e2e/broker_defaults_webhook_test.go
+index d03154cea..50b07d1fb 100644
+--- a/test/e2e/broker_defaults_webhook_test.go
++++ b/test/e2e/broker_defaults_webhook_test.go
+@@ -82,6 +82,8 @@ func TestBrokerNamespaceDefaulting(t *testing.T) {
+ 		b, err := yaml.Marshal(defaults)
+ 		assert.Nil(t, err)
+ 
++		// Instead of updating the CM directly, we need to update its definition in KnativeEventing:
++		/*
+ 		cm.Data[config.BrokerDefaultsKey] = string(b)
+ 
+ 		cm, err = c.Kube.CoreV1().ConfigMaps(system.Namespace()).Update(ctx, cm, metav1.UpdateOptions{})
+@@ -95,6 +97,22 @@ func TestBrokerNamespaceDefaulting(t *testing.T) {
+ 		} else {
+ 			t.Log("CM updated - new values:", string(b))
+ 		}
++		*/
++
++		knativeEventing, err := c.Dynamic.
++			Resource(schema.GroupVersionResource{Group: "operator.knative.dev", Version: "v1beta1", Resource: "knativeeventings"}).
++			Namespace(system.Namespace()).Get(ctx, "knative-eventing", metav1.GetOptions{})
++		assert.Nil(t, err)
++
++		err = unstructured.SetNestedField(knativeEventing.Object, string(b), "spec", "config", config.DefaultsConfigName, config.BrokerDefaultsKey)
++		assert.Nil(t, err)
++
++		_, err = c.Dynamic.
++			Resource(schema.GroupVersionResource{Group: "operator.knative.dev", Version: "v1beta1", Resource: "knativeeventings"}).
++			Namespace(system.Namespace()).Update(ctx, knativeEventing, metav1.UpdateOptions{})
++		if err != nil {
++			return err
++		}
+ 
+ 		return nil
+ 	})
+@@ -112,7 +130,7 @@ func TestBrokerNamespaceDefaulting(t *testing.T) {
+ 		Duration: time.Second,
+ 		Factor:   1.0,
+ 		Jitter:   0.1,
+-		Steps:    5,
++		Steps:    50, // We increase timeout here, as the Serverless Operator needs to reconcile KnativeEventing first
+ 	}
+ 
+ 	err = retry.OnError(backoff, func(err error) bool { return err != nil }, func() error {
+@@ -183,5 +201,6 @@ func webhookObservedBrokerUpdate(br *eventingv1.Broker) bool {
+ }
+ 
+ func webhookObservedBrokerUpdateFromDeliverySpec(d *eventingduck.DeliverySpec) bool {
+-	return d != nil && d.BackoffDelay != nil && d.Retry != nil && d.BackoffPolicy != nil
++	// Serverless has backoff/retry configured by default, so we need to compare exactly, not just != nil here
++	return d != nil && *d.BackoffDelay == "PT0.5S" && *d.Retry == 5 && *d.BackoffPolicy == eventingduck.BackoffPolicyExponential
+ }

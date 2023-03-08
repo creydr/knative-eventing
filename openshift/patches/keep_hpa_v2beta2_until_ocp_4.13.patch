@@ -1,0 +1,13 @@
+diff --git a/config/core/deployments/webhook-hpa.yaml b/config/core/deployments/webhook-hpa.yaml
+index 007f98d04..04d5fbfe3 100644
+--- a/config/core/deployments/webhook-hpa.yaml
++++ b/config/core/deployments/webhook-hpa.yaml
+@@ -12,7 +12,7 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-apiVersion: autoscaling/v2
++apiVersion: autoscaling/v2beta2
+ kind: HorizontalPodAutoscaler
+ metadata:
+   name: eventing-webhook
