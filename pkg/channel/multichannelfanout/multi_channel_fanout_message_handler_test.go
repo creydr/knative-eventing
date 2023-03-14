@@ -91,7 +91,7 @@ func TestNewMessageHandler(t *testing.T) {
 	reporter := channel.NewStatsReporter("testcontainer", "testpod")
 	logger := zaptest.NewLogger(t, zaptest.WrapOptions(zap.AddCaller()))
 
-	handler := NewMessageHandler(context.TODO(), logger, channel.NewMessageDispatcher(logger), reporter)
+	handler := NewMessageHandler(context.TODO(), logger)
 	h := handler.GetChannelHandler(handlerName)
 	if len(handler.handlers) != 0 {
 		t.Errorf("non-empty handler map on creation")

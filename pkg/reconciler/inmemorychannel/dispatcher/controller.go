@@ -101,7 +101,7 @@ func NewController(
 
 	reporter := channel.NewStatsReporter(env.ContainerName, kmeta.ChildName(env.PodName, uuid.New().String()))
 
-	sh := multichannelfanout.NewMessageHandler(ctx, logger.Desugar(), channel.NewMessageDispatcher(logger.Desugar()), reporter)
+	sh := multichannelfanout.NewMessageHandler(ctx, logger.Desugar())
 
 	readinessChecker := &DispatcherReadyChecker{
 		chLister:     inmemorychannelinformer.Get(ctx).Lister(),
