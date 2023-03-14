@@ -60,7 +60,7 @@ type MessageHandler struct {
 	handlers     map[string]fanout.MessageHandler
 }
 
-// NewHandler creates a new Handler.
+// NewMessageHandler creates a new MessageHandler.
 func NewMessageHandler(_ context.Context, logger *zap.Logger, messageDispatcher channel.MessageDispatcher, reporter channel.StatsReporter) *MessageHandler {
 	return &MessageHandler{
 		logger:   logger,
