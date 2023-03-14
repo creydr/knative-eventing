@@ -101,10 +101,11 @@ func NewController(
 
 	reporter := channel.NewStatsReporter(env.ContainerName, kmeta.ChildName(env.PodName, uuid.New().String()))
 
+	inmemorychannelInformer := inmemorychannelinformer.Get(ctx)
 	sh := multichannelfanout.NewMessageHandler(ctx, logger.Desugar())
 
 	readinessChecker := &DispatcherReadyChecker{
-		chLister:     inmemorychannelinformer.Get(ctx).Lister(),
+		chLister:     inmemorychannelInformer.Lister(),
 		chMsgHandler: sh,
 	}
 
@@ -120,8 +121,6 @@ func NewController(
 		},
 	}
 	inMemoryDispatcher := inmemorychannel.NewMessageDispatcher(args)
-
-	inmemorychannelInformer := inmemorychannelinformer.Get(ctx)
 
 	r := &Reconciler{
 		multiChannelMessageHandler: sh,
