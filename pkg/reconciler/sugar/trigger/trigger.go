@@ -57,13 +57,15 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, t *v1.Trigger) reconcile
 	if err != nil {
 		return fmt.Errorf("invalid label selector for triggers: %w", err)
 	}
-	if !selector.Matches(kubelabels.Set(t.GetLabels())) {
+
+	// For improved backwards compat. we check if we have the annotation as well
+	// With this, the actual value is configured on the config-sugar, for the annotation as well.
+	if selector.Matches(kubelabels.Set(t.GetLabels())) || selector.Matches(kubelabels.Set(t.GetAnnotations())) {
+		logging.FromContext(ctx).Debugf("Sugar Controller enabled for Trigger:%s in configmap 'config-sugar'", t.Name)
+	} else {
 		logging.FromContext(ctx).Debugf("Sugar Controller disabled for Trigger:%s in configmap 'config-sugar'", t.Name)
 		return nil
-	} else {
-		logging.FromContext(ctx).Debugf("Sugar Controller enabled for Trigger:%s in configmap 'config-sugar'", t.Name)
 	}
-
 	_, err = r.brokerLister.Brokers(t.Namespace).Get(t.Spec.Broker)
 
 	// If the resource doesn't exist, we'll create it.

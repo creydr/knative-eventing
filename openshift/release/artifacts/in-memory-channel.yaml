@@ -224,8 +224,6 @@ spec:
           capabilities:
             drop:
             - ALL
-          seccompProfile:
-            type: RuntimeDefault
 
         ports:
         - name: metrics
@@ -413,8 +411,6 @@ spec:
           capabilities:
             drop:
             - ALL
-          seccompProfile:
-            type: RuntimeDefault
 ---
 # Copyright 2019 The Knative Authors
 #
