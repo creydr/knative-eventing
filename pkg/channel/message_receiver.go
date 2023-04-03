@@ -177,6 +177,9 @@ func (r *MessageReceiver) ServeHTTP(response nethttp.ResponseWriter, request *ne
 	}
 	r.logger.Debug("Request mapped to channel", zap.String("channel", channel.String()))
 
+	r.logger.Info("***Auth header***", zap.String("Authorization", request.Header.Get("Authorization")))
+	r.logger.Info("***All headers***", zap.Any("Headers", request.Header))
+
 	args.Ns = channel.Namespace
 
 	message := http.NewMessageFromHttpRequest(request)

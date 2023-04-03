@@ -18,6 +18,7 @@ package ingress
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -35,6 +36,7 @@ import (
 
 	"knative.dev/pkg/network"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"knative.dev/eventing/pkg/apis/eventing"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	"knative.dev/eventing/pkg/broker"
@@ -128,6 +130,26 @@ func (h *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
+	brokerNamespace := nsBrokerName[1]
+	brokerName := nsBrokerName[2]
+	brokerNamespacedName := types.NamespacedName{
+		Name:      brokerName,
+		Namespace: brokerNamespace,
+	}
+
+	// validate JWT
+	ok, err := h.isAuthorizedJWT(request, "knative-service-1")
+	if err != nil {
+		h.Logger.Warn("failed to validate JWT", zap.Error(err))
+		writer.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if !ok {
+		h.Logger.Warn("JWT not valid")
+		writer.WriteHeader(http.StatusUnauthorized)
+	}
+	h.Logger.Warn("User has valid JWT")
+
 	ctx := request.Context()
 
 	message := cehttp.NewMessageFromHttpRequest(request)
@@ -146,13 +168,6 @@ func (h *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		h.Logger.Warn("failed to validate extracted event", zap.Error(validationErr))
 		writer.WriteHeader(http.StatusBadRequest)
 		return
-	}
-
-	brokerNamespace := nsBrokerName[1]
-	brokerName := nsBrokerName[2]
-	brokerNamespacedName := types.NamespacedName{
-		Name:      brokerName,
-		Namespace: brokerNamespace,
 	}
 
 	ctx, span := trace.StartSpan(ctx, tracing.BrokerMessagingDestination(brokerNamespacedName))
@@ -241,4 +256,51 @@ func (h *Handler) sendAndRecordDispatchTime(request *http.Request) (*http.Respon
 	resp, err := h.Sender.Send(request)
 	dispatchTime := time.Since(start)
 	return resp, dispatchTime, err
+}
+
+var RealmConfigURL string = "https://192.168.178.22:8443/realms/knative-test"
+var clientID string = "knative-service-1"
+
+func (h *Handler) isAuthorizedJWT(request *http.Request, requiredAudience string) (bool, error) {
+	authHeader := request.Header.Get("Authorization")
+	if len(authHeader) == 0 {
+		return false, fmt.Errorf("authorization header must be provided")
+	}
+
+	rawIDToken, found := strings.CutPrefix(authHeader, "Bearer ")
+	if !found {
+		return false, fmt.Errorf("authorization header must contain a Bearer token")
+	}
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
+	client := &http.Client{
+		Timeout:   time.Duration(6000) * time.Second,
+		Transport: tr,
+	}
+	ctx := oidc.ClientContext(context.Background(), client)
+	provider, err := oidc.NewProvider(ctx, RealmConfigURL)
+	if err != nil {
+		return false, fmt.Errorf("authorisation failed while getting the provider: %w", err)
+	}
+
+	oidcConfig := &oidc.Config{
+		ClientID: clientID,
+	}
+	verifier := provider.Verifier(oidcConfig)
+	idToken, err := verifier.Verify(ctx, rawIDToken)
+	if err != nil {
+		return false, fmt.Errorf("authorisation failed while verifying the token: %w", err)
+	}
+
+	for _, tokenAudience := range idToken.Audience {
+		if tokenAudience == requiredAudience {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

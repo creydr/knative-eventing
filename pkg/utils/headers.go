@@ -39,6 +39,11 @@ var (
 		"knative-", // Knative
 		"x-b3-",    // Zipkin (Istio) B3
 	}
+
+	// tmp fix to keep Authorization header and pass through to channel
+	additionalHeaders = sets.NewString(
+		"authorization",
+	)
 )
 
 // PassThroughHeaders extracts the headers from headers that are in the `forwardHeaders` set
@@ -49,6 +54,10 @@ func PassThroughHeaders(headers http.Header) http.Header {
 	for n, v := range headers {
 		lower := strings.ToLower(n)
 		if forwardHeaders.Has(lower) {
+			h[n] = v
+			continue
+		}
+		if additionalHeaders.Has(lower) {
 			h[n] = v
 			continue
 		}
