@@ -17,7 +17,10 @@ limitations under the License.
 package adapter
 
 import (
+	"bytes"
 	"context"
+	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	nethttp "net/http"
@@ -85,6 +88,33 @@ func newCloudEventsClientCRStatus(env EnvConfigAccessor, ceOverrides *duckv1.Clo
 		Propagation: tracecontextb3.TraceContextEgress,
 	}))
 
+	// get token and add to headers
+	body := []byte("client_id=knative-service-1&client_secret=tXiXbovizltYEfqvBpSV7wGpzAgfkouJ&grant_type=client_credentials&scope=openid")
+	request, err := nethttp.NewRequest("POST", "https://192.168.178.22:8443/realms/knative-test/protocol/openid-connect/token", bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Add("Content-Type", "application/x-www-form-urlencoded") //during my tests I didn't see my keycloak accepting application/json (thus body is not in JSON format :/ )
+	httpClient := &nethttp.Client{
+		Transport: &nethttp.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true, // XO
+			},
+		},
+	}
+	res, err := httpClient.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	result := &Token{}
+	if err = json.NewDecoder(res.Body).Decode(result); err != nil {
+		return nil, err
+	}
+
+	pOpts = append(pOpts, cloudevents.WithHeader("Authorization", fmt.Sprintf("Bearer %s", result.IdToken)))
+
 	if env != nil {
 		if target := env.GetSink(); len(target) > 0 {
 			pOpts = append(pOpts, cloudevents.WithTarget(target))
@@ -118,6 +148,16 @@ func newCloudEventsClientCRStatus(env EnvConfigAccessor, ceOverrides *duckv1.Clo
 		reporter:            reporter,
 		crStatusEventClient: crStatusEventClient,
 	}, nil
+}
+
+type Token struct {
+	AccessToken      string `json:"access_token,omitempty"`
+	ExpiresIn        int    `json:"expires_in,omitempty"`
+	RefreshExpiresIn int    `json:"refresh_expires_in,omitempty"`
+	TokenType        string `json:"token_type,omitempty"`
+	IdToken          string `json:"id_token,omitempty"`
+	NotBeforePolicy  int    `json:"not-before-policy,omitempty"`
+	Scope            string `json:"scope,omitempty"`
 }
 
 func setTimeOut(duration time.Duration) http.Option {

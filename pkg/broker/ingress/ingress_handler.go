@@ -258,7 +258,9 @@ func (h *Handler) sendAndRecordDispatchTime(request *http.Request) (*http.Respon
 	return resp, dispatchTime, err
 }
 
-var RealmConfigURL string = "https://192.168.178.22:8443/realms/knative-test"
+var realmConfigURL string = "https://192.168.178.22:8443/realms/knative-test"
+
+// var realmConfigURL string = "https://kubernetes.default.svc.cluster.local"
 var clientID string = "knative-service-1"
 
 func (h *Handler) isAuthorizedJWT(request *http.Request, requiredAudience string) (bool, error) {
@@ -282,7 +284,7 @@ func (h *Handler) isAuthorizedJWT(request *http.Request, requiredAudience string
 		Transport: tr,
 	}
 	ctx := oidc.ClientContext(context.Background(), client)
-	provider, err := oidc.NewProvider(ctx, RealmConfigURL)
+	provider, err := oidc.NewProvider(ctx, realmConfigURL)
 	if err != nil {
 		return false, fmt.Errorf("authorisation failed while getting the provider: %w", err)
 	}
