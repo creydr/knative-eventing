@@ -17,14 +17,19 @@ limitations under the License.
 package mtping
 
 import (
+	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
+	cehttp "github.com/cloudevents/sdk-go/v2/protocol/http"
 	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
 	"go.opentelemetry.io/otel/trace"
@@ -141,12 +146,51 @@ func (a *cronJobsRunner) cronTick(ctx context.Context, event cloudevents.Event) 
 
 		a.Logger.Debugf("sending cloudevent id: %s, source: %s, target: %s", event.ID(), source, target)
 
+		// get token and add to headers (could get target for event request from context)
+		body := []byte("client_id=knative-service-1&client_secret=tXiXbovizltYEfqvBpSV7wGpzAgfkouJ&grant_type=client_credentials&scope=openid")
+		request, err := http.NewRequest("POST", "https://192.168.178.22:8443/realms/knative-test/protocol/openid-connect/token", bytes.NewBuffer(body))
+		if err != nil {
+			a.Logger.Error("failed to create request to get OIDC token", zap.Error(err))
+		}
+		request.Header.Add("Content-Type", "application/x-www-form-urlencoded") //during my tests I didn't see my keycloak accepting application/json (thus body is not in JSON format :/ )
+		httpClient := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true, // XO
+				},
+			},
+		}
+		res, err := httpClient.Do(request)
+		if err != nil {
+			a.Logger.Error("failed to execute request to get OIDC token", zap.Error(err))
+		}
+		defer res.Body.Close()
+
+		result := &Token{}
+		if err = json.NewDecoder(res.Body).Decode(result); err != nil {
+			a.Logger.Error("failed to decode OIDC response into token", zap.Error(err))
+		}
+
+		header := http.Header{}
+		header.Set("Authorization", fmt.Sprintf("Bearer %s", result.IdToken))
+		ctx = cehttp.WithCustomHeader(ctx, header)
+
 		if result := a.Client.Send(ctx, event); !cloudevents.IsACK(result) {
 			// Exhausted number of retries. Event is lost.
 			a.Logger.Error("failed to send cloudevent result: ", zap.Any("result", result),
 				zap.String("source", source), zap.String("target", target), zap.String("id", event.ID()))
 		}
 	}
+}
+
+type Token struct {
+	AccessToken      string `json:"access_token,omitempty"`
+	ExpiresIn        int    `json:"expires_in,omitempty"`
+	RefreshExpiresIn int    `json:"refresh_expires_in,omitempty"`
+	TokenType        string `json:"token_type,omitempty"`
+	IdToken          string `json:"id_token,omitempty"`
+	NotBeforePolicy  int    `json:"not-before-policy,omitempty"`
+	Scope            string `json:"scope,omitempty"`
 }
 
 func makeEvent(source *sourcesv1.PingSource) (cloudevents.Event, error) {
