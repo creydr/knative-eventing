@@ -18,6 +18,7 @@ package test
 
 import (
 	"context"
+	"fmt"
 	nethttp "net/http"
 	"time"
 
@@ -35,9 +36,17 @@ func NewFakeClient() *FakeClient {
 	}
 }
 
+func NewFakeClientWithDelay(delay time.Duration) *FakeClient {
+	client := NewFakeClient()
+	client.delay = delay
+
+	return client
+}
+
 type FakeClient struct {
-	delay      time.Duration
-	sentEvents []event.Event
+	delay          time.Duration
+	sentEvents     []event.Event
+	requestOptions []kncloudevents.RequestOption
 }
 
 // SentEvents returns all events sent within all requests of this client.
@@ -50,20 +59,44 @@ func (c *FakeClient) Send(request *kncloudevents.Request) (*nethttp.Response, er
 		time.Sleep(c.delay)
 	}
 
+	if err := c.applyRequestOptions(request); err != nil {
+		return nil, err
+	}
+
 	// get event from request to add to sentEvents
 	message := http.NewMessageFromHttpRequest(request.HTTPRequest())
 	defer message.Finish(nil)
 
 	event, err := binding.ToEvent(context.TODO(), message)
-	if err == nil {
-		c.sentEvents = append(c.sentEvents, *event)
+	if err != nil {
+		return nil, err
 	}
+
+	c.sentEvents = append(c.sentEvents, *event)
 
 	return &nethttp.Response{
 		StatusCode: nethttp.StatusOK,
 	}, nil
 }
 
-func (req *FakeClient) SendWithRetries(request *kncloudevents.Request, config *kncloudevents.RetryConfig) (*nethttp.Response, error) {
-	return req.Send(request)
+func (c *FakeClient) SendWithRetries(request *kncloudevents.Request, config *kncloudevents.RetryConfig) (*nethttp.Response, error) {
+	return c.Send(request)
+}
+
+func (c *FakeClient) SetTimeout(time time.Duration) {
+	// in the test client we don't care about client timeouts
+}
+
+func (c *FakeClient) AddRequestOptions(opts ...kncloudevents.RequestOption) {
+	c.requestOptions = append(c.requestOptions, opts...)
+}
+
+func (c *FakeClient) applyRequestOptions(req *kncloudevents.Request) error {
+	for _, opt := range c.requestOptions {
+		if err := opt(req); err != nil {
+			return fmt.Errorf("could not apply request option: %w", err)
+		}
+	}
+
+	return nil
 }

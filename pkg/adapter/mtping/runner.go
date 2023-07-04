@@ -32,11 +32,11 @@ import (
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 
-	"knative.dev/eventing/pkg/adapter/v2"
-	kncloudevents "knative.dev/eventing/pkg/adapter/v2"
 	"knative.dev/eventing/pkg/adapter/v2/util/crstatusevent"
 	sourcesv1 "knative.dev/eventing/pkg/apis/sources/v1"
+	"knative.dev/eventing/pkg/kncloudevents"
 	"knative.dev/eventing/pkg/observability"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 type CronJobRunner interface {
@@ -56,19 +56,20 @@ type cronJobsRunner struct {
 	// kubeClient for sending k8s events
 	kubeClient kubernetes.Interface
 
-	clientConfig kncloudevents.ClientConfig
+	// client for sending cloud events
+	ceClient kncloudevents.Client
 }
 
 const (
 	resourceGroup = "pingsources.sources.knative.dev"
 )
 
-func NewCronJobsRunner(cfg adapter.ClientConfig, kubeClient kubernetes.Interface, logger *zap.SugaredLogger, opts ...cron.Option) *cronJobsRunner {
+func NewCronJobsRunner(ceClient kncloudevents.Client, kubeClient kubernetes.Interface, logger *zap.SugaredLogger, opts ...cron.Option) *cronJobsRunner {
 	return &cronJobsRunner{
-		cron:         *cron.New(opts...),
-		Logger:       logger,
-		kubeClient:   kubeClient,
-		clientConfig: cfg,
+		cron:       *cron.New(opts...),
+		Logger:     logger,
+		kubeClient: kubeClient,
+		ceClient:   ceClient,
 	}
 }
 
@@ -88,12 +89,6 @@ func (a *cronJobsRunner) AddSchedule(source *sourcesv1.PingSource) cron.EntryID 
 	// We might want to retry more times for less-frequent schedule.
 	ctx = cloudevents.ContextWithRetriesExponentialBackoff(ctx, 50*time.Millisecond, 5)
 
-	metricTag := &kncloudevents.MetricTag{
-		Namespace:     source.Namespace,
-		Name:          source.Name,
-		ResourceGroup: resourceGroup,
-	}
-
 	// See https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/messaging.md#span-name
 	spanName := source.Status.SinkURI.String() + " send"
 
@@ -105,19 +100,14 @@ func (a *cronJobsRunner) AddSchedule(source *sourcesv1.PingSource) cron.EntryID 
 		schedule = "CRON_TZ=" + source.Spec.Timezone + " " + schedule
 	}
 
-	ctx = kncloudevents.ContextWithMetricTag(ctx, metricTag)
-
-	client, err := a.newPingSourceClient(source)
-	if err != nil {
-		a.Logger.Desugar().Error("Failed to create client",
-			zap.String("name", source.GetName()),
-			zap.String("namespace", source.GetNamespace()),
-			zap.Error(err),
-		)
-		return -1
+	metricTag := kncloudevents.MetricTag{
+		Namespace:     source.Namespace,
+		Name:          source.Name,
+		ResourceGroup: resourceGroup,
 	}
+	ctx = kncloudevents.WithMetricTag(ctx, metricTag)
 
-	id, _ := a.cron.AddFunc(schedule, a.cronTick(ctx, client, source, event))
+	id, _ := a.cron.AddFunc(schedule, a.cronTick(ctx, source, event))
 	return id
 }
 
@@ -138,8 +128,11 @@ func (a *cronJobsRunner) Stop() {
 	}
 }
 
-func (a *cronJobsRunner) cronTick(ctx context.Context, client kncloudevents.Client, src *sourcesv1.PingSource, event cloudevents.Event) func() {
-	target := src.Status.SinkURI.String()
+func (a *cronJobsRunner) cronTick(ctx context.Context, src *sourcesv1.PingSource, event cloudevents.Event) func() {
+	target := duckv1.Addressable{
+		URL:     src.Status.SinkURI,
+		CACerts: src.Status.SinkCACerts,
+	}
 
 	return func() {
 		event := event.Clone()
@@ -152,13 +145,23 @@ func (a *cronJobsRunner) cronTick(ctx context.Context, client kncloudevents.Clie
 
 		a.Logger.Debugf("sending cloudevent id: %s, source: %s, target: %s", event.ID(), source, target)
 
-		if result := client.Send(ctx, event); !cloudevents.IsACK(result) {
-			// Exhausted number of retries. Event is lost.
-			a.Logger.Error("failed to send cloudevent result: ", zap.Any("result", result),
-				zap.String("source", source), zap.String("target", src.Status.SinkURI.String()), zap.String("id", event.ID()))
+		req, err := kncloudevents.NewRequest(ctx, target)
+		if err != nil {
+			a.Logger.Error("failed to create cloud events request", zap.Any("target", target), zap.Error(err))
+			return
 		}
 
-		client.CloseIdleConnections()
+		if err := req.BindEvent(ctx, event); err != nil {
+			a.Logger.Error("failed to bind event to request", zap.Any("target", target), zap.Error(err))
+		}
+
+		retryConfig := kncloudevents.RetryConfigFrom(ctx)
+		_, err = a.ceClient.SendWithRetries(req, retryConfig)
+		if err != nil {
+			// Exhausted number of retries. Event is lost.
+
+			a.Logger.Error("failed to send cloudevent", zap.Error(err))
+		}
 	}
 }
 
@@ -188,27 +191,27 @@ func makeEvent(source *sourcesv1.PingSource) (cloudevents.Event, error) {
 	return event, nil
 }
 
-func (a *cronJobsRunner) newPingSourceClient(source *sourcesv1.PingSource) (adapter.Client, error) {
-	var env adapter.EnvConfig
-	if a.clientConfig.Env != nil {
-		env = adapter.EnvConfig{
-			Namespace:      source.GetNamespace(),
-			Name:           a.clientConfig.Env.GetName(),
-			EnvSinkTimeout: fmt.Sprintf("%d", a.clientConfig.Env.GetSinktimeout()),
-		}
-	}
+// func (a *cronJobsRunner) newPingSourceClient(source *sourcesv1.PingSource) (adapter.Client, error) {
+// 	var env adapter.EnvConfig
+// 	if a.clientConfig.Env != nil {
+// 		env = adapter.EnvConfig{
+// 			Namespace:      source.GetNamespace(),
+// 			Name:           a.clientConfig.Env.GetName(),
+// 			EnvSinkTimeout: fmt.Sprintf("%d", a.clientConfig.Env.GetSinktimeout()),
+// 		}
+// 	}
 
-	env.Sink = source.Status.SinkURI.String()
-	env.CACerts = source.Status.SinkCACerts
+// 	env.Sink = source.Status.SinkURI.String()
+// 	env.CACerts = source.Status.SinkCACerts
 
-	cfg := adapter.ClientConfig{
-		Env:                 &env,
-		CeOverrides:         source.Spec.CloudEventOverrides,
-		Reporter:            a.clientConfig.Reporter,
-		CrStatusEventClient: a.clientConfig.CrStatusEventClient,
-		Options:             a.clientConfig.Options,
-		Client:              a.clientConfig.Client,
-	}
+// 	cfg := adapter.ClientConfig{
+// 		Env:                 &env,
+// 		CeOverrides:         source.Spec.CloudEventOverrides,
+// 		Reporter:            a.clientConfig.Reporter,
+// 		CrStatusEventClient: a.clientConfig.CrStatusEventClient,
+// 		Options:             a.clientConfig.Options,
+// 		Client:              a.clientConfig.Client,
+// 	}
 
-	return adapter.NewClient(cfg)
-}
+// 	return adapter.NewClient(cfg)
+// }

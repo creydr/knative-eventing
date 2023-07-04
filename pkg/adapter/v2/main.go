@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
 	"knative.dev/pkg/tracing"
@@ -49,6 +48,8 @@ import (
 	"knative.dev/pkg/signals"
 
 	"knative.dev/eventing/pkg/adapter/v2/util/crstatusevent"
+	"knative.dev/eventing/pkg/apis"
+	"knative.dev/eventing/pkg/kncloudevents"
 	"knative.dev/eventing/pkg/metrics/source"
 )
 
@@ -57,7 +58,7 @@ type Adapter interface {
 	Start(ctx context.Context) error
 }
 
-type AdapterConstructor func(ctx context.Context, env EnvConfigAccessor, client cloudevents.Client) Adapter
+type AdapterConstructor func(ctx context.Context, env EnvConfigAccessor, client kncloudevents.Client) Adapter
 
 // ControllerConstructor is the function signature for creating controllers synchronizing
 // the multi-tenant receive adapter state
@@ -221,13 +222,19 @@ func MainWithInformers(ctx context.Context, component string, env EnvConfigAcces
 	}
 	ctx = withClientConfig(ctx, clientConfig)
 
-	eventsClient, err := NewClient(clientConfig)
-	if err != nil {
-		logger.Fatalw("Error building cloud event client", zap.Error(err))
+	ceClient := kncloudevents.NewClient()
+	if sinkWait := env.GetSinktimeout(); sinkWait > 0 {
+		ceClient.SetTimeout(time.Duration(sinkWait) * time.Second)
+	}
+
+	ceClient.AddRequestOptions(kncloudevents.WithHeader(apis.KnNamespaceHeader, env.GetNamespace()))
+
+	if overrides, err := env.GetCloudEventOverrides(); err == nil {
+		ceClient.AddRequestOptions(kncloudevents.WithCEOverride(overrides))
 	}
 
 	// Configuring the adapter
-	adapter := ctor(ctx, env, eventsClient)
+	adapter := ctor(ctx, env, ceClient)
 
 	// Build the leader elector
 	leConfig, err := env.GetLeaderElectionConfig()

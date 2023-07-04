@@ -75,6 +75,21 @@ type RetryConfig struct {
 	RetryAfterMaxDuration *time.Duration
 }
 
+type retryConfigKey struct{}
+
+func WithRetryConfig(ctx context.Context, cfg RetryConfig) context.Context {
+	return context.WithValue(ctx, retryConfigKey{}, cfg)
+}
+
+func RetryConfigFrom(ctx context.Context) *RetryConfig {
+	val := ctx.Value(retryConfigKey{})
+	if val == nil {
+		return nil
+	}
+	rc := val.(RetryConfig)
+	return &rc
+}
+
 func NoRetries() RetryConfig {
 	return noRetries
 }

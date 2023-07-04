@@ -21,13 +21,13 @@ import (
 	"os"
 	"testing"
 
-	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"knative.dev/eventing/pkg/kncloudevents"
 	kubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/leaderelection"
@@ -67,7 +67,7 @@ func TestMainWithNothing(t *testing.T) {
 
 	Main("mycomponent",
 		func() EnvConfigAccessor { return &myEnvConfig{} },
-		func(ctx context.Context, processed EnvConfigAccessor, client cloudevents.Client) Adapter {
+		func(ctx context.Context, processed EnvConfigAccessor, client kncloudevents.Client) Adapter {
 			env := processed.(*myEnvConfig)
 
 			if env.Mode != "mymode" {
@@ -109,7 +109,7 @@ func TestMainWithInformerNoLeaderElection(t *testing.T) {
 		MainWithInformers(ctx,
 			"mycomponent",
 			env,
-			func(ctx context.Context, processed EnvConfigAccessor, client cloudevents.Client) Adapter {
+			func(ctx context.Context, processed EnvConfigAccessor, client kncloudevents.Client) Adapter {
 				env := processed.(*myEnvConfig)
 
 				if env.Mode != "mymode" {
@@ -167,7 +167,7 @@ func TestMain_MetricsConfig(t *testing.T) {
 		MainWithInformers(ctx,
 			"mycomponent",
 			env,
-			func(ctx context.Context, processed EnvConfigAccessor, client cloudevents.Client) Adapter {
+			func(ctx context.Context, processed EnvConfigAccessor, client kncloudevents.Client) Adapter {
 				env := processed.(*myEnvConfig)
 
 				if env.Mode != "mymode" {
@@ -310,7 +310,7 @@ func TestMain_LogConfigWatcher(t *testing.T) {
 	done := make(chan bool)
 	go func() {
 		MainWithInformers(ctx, tComponentName, env,
-			func(ctx context.Context, processed EnvConfigAccessor, client cloudevents.Client) Adapter {
+			func(ctx context.Context, processed EnvConfigAccessor, client kncloudevents.Client) Adapter {
 				env := processed.(*myEnvConfig)
 
 				if env.Sink != "http://sink" {

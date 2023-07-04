@@ -40,10 +40,10 @@ import (
 	"knative.dev/pkg/logging"
 	rectesting "knative.dev/pkg/reconciler/testing"
 
-	"knative.dev/eventing/pkg/adapter/v2"
-	adaptertesting "knative.dev/eventing/pkg/adapter/v2/test"
 	sourcesv1 "knative.dev/eventing/pkg/apis/sources/v1"
 	"knative.dev/eventing/pkg/eventingtls/eventingtlstesting"
+	"knative.dev/eventing/pkg/kncloudevents"
+	"knative.dev/eventing/pkg/kncloudevents/test"
 )
 
 const (
@@ -206,9 +206,9 @@ func TestAddRunRemoveSchedules(t *testing.T) {
 		t.Run(n, func(t *testing.T) {
 			ctx, _ := rectesting.SetupFakeContext(t)
 			logger := logging.FromContext(ctx)
-			ce := adaptertesting.NewTestClient()
+			ceClient := test.NewFakeClient()
 
-			runner := NewCronJobsRunner(adapter.ClientConfig{Client: ce}, kubeclient.Get(ctx), logger)
+			runner := NewCronJobsRunner(ceClient, kubeclient.Get(ctx), logger)
 			entryId := runner.AddSchedule(tc.src)
 
 			entry := runner.cron.Entry(entryId)
@@ -218,7 +218,7 @@ func TestAddRunRemoveSchedules(t *testing.T) {
 
 			entry.Job.Run()
 
-			validateSent(t, ce, tc.wantData, tc.wantContentType, tc.src.Spec.CloudEventOverrides.Extensions)
+			validateSent(t, ceClient, tc.wantData, tc.wantContentType, tc.src.Spec.CloudEventOverrides.Extensions)
 
 			runner.RemoveSchedule(entryId)
 
@@ -311,11 +311,9 @@ func TestSendEventsTLS(t *testing.T) {
 	for n, tc := range testCases {
 		t.Run(n, func(t *testing.T) {
 			logger := logging.FromContext(ctx)
+			ceClient := kncloudevents.NewClient()
 
-			cc := adapter.ClientConfig{
-				CeOverrides: tc.src.Spec.CloudEventOverrides,
-			}
-			runner := NewCronJobsRunner(cc, kubeclient.Get(ctx), logger)
+			runner := NewCronJobsRunner(ceClient, kubeclient.Get(ctx), logger)
 			entryId := runner.AddSchedule(tc.src)
 
 			entry := runner.cron.Entry(entryId)
@@ -324,6 +322,11 @@ func TestSendEventsTLS(t *testing.T) {
 			}
 
 			entry.Job.Run()
+
+			// as we cache the certs for an addressable, make sure to delete the addressable from the cache after each run
+			kncloudevents.DeleteAddressableHandler(duckv1.Addressable{
+				URL: tc.src.Status.SinkURI,
+			})
 		})
 	}
 
@@ -341,9 +344,9 @@ func TestSendEventsTLS(t *testing.T) {
 func TestStartStopCron(t *testing.T) {
 	ctx, _ := rectesting.SetupFakeContext(t)
 	logger := logging.FromContext(ctx)
-	ce := adaptertesting.NewTestClient()
+	ceClient := test.NewFakeClient()
 
-	runner := NewCronJobsRunner(adapter.ClientConfig{Client: ce}, kubeclient.Get(ctx), logger)
+	runner := NewCronJobsRunner(ceClient, kubeclient.Get(ctx), logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	wctx, wcancel := context.WithCancel(context.Background())
@@ -370,9 +373,9 @@ func TestStartStopCronDelayWait(t *testing.T) {
 	}
 	ctx, _ := rectesting.SetupFakeContext(t)
 	logger := logging.FromContext(ctx)
-	ce := adaptertesting.NewTestClientWithDelay(time.Second * 5)
+	ceClient := test.NewFakeClientWithDelay(time.Second * 5)
 
-	runner := NewCronJobsRunner(adapter.ClientConfig{Client: ce}, kubeclient.Get(ctx), logger)
+	runner := NewCronJobsRunner(ceClient, kubeclient.Get(ctx), logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -408,15 +411,16 @@ func TestStartStopCronDelayWait(t *testing.T) {
 
 	runner.Stop() // cron job because of delay is still running.
 
-	validateSent(t, ce, []byte("some delayed data"), cloudevents.TextPlain, nil)
+	validateSent(t, ceClient, []byte("some delayed data"), cloudevents.TextPlain, nil)
 }
 
-func validateSent(t *testing.T, ce *adaptertesting.TestCloudEventsClient, wantData []byte, wantContentType string, extensions map[string]string) {
-	if got := len(ce.Sent()); got != 1 {
+func validateSent(t *testing.T, ce *test.FakeClient, wantData []byte, wantContentType string, extensions map[string]string) {
+	if got := len(ce.SentEvents()); got != 1 {
 		t.Error("Expected 1 event to be sent, got", got)
+		return
 	}
 
-	event := ce.Sent()[0]
+	event := ce.SentEvents()[0]
 
 	if gotContentType := event.DataContentType(); gotContentType != wantContentType {
 		t.Errorf("Expected event with contentType=%q to be sent, got %q", wantContentType, gotContentType)

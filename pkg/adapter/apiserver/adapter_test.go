@@ -33,7 +33,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	kubetesting "k8s.io/client-go/testing"
-	adaptertest "knative.dev/eventing/pkg/adapter/v2/test"
+	"knative.dev/eventing/pkg/kncloudevents/test"
 	rectesting "knative.dev/eventing/pkg/reconciler/testing"
 	"knative.dev/pkg/logging"
 	pkgtesting "knative.dev/pkg/reconciler/testing"
@@ -42,7 +42,7 @@ import (
 const apiServerSourceNameTest = "test-apiserversource"
 
 func TestAdapter_StartRef(t *testing.T) {
-	ce := adaptertest.NewTestClient()
+	ce := test.NewFakeClient()
 
 	config := Config{
 		Namespaces: []string{"default"},
@@ -90,7 +90,7 @@ func TestAdapter_StartRef(t *testing.T) {
 }
 
 func TestAdapter_StartResource(t *testing.T) {
-	ce := adaptertest.NewTestClient()
+	ce := test.NewFakeClient()
 
 	config := Config{
 		Namespaces: []string{"default"},
@@ -137,7 +137,7 @@ func TestAdapter_StartResource(t *testing.T) {
 }
 
 func TestAdapter_StartNonNamespacedResource(t *testing.T) {
-	ce := adaptertest.NewTestClient()
+	ce := test.NewFakeClient()
 
 	config := Config{
 		Namespaces: []string{"default"},
@@ -271,24 +271,25 @@ func simpleOwnedPod(name, namespace string) *unstructured.Unstructured {
 	}
 }
 
-func validateSent(t *testing.T, ce *adaptertest.TestCloudEventsClient, want string) {
-	if got := len(ce.Sent()); got != 1 {
+func validateSent(t *testing.T, ce *test.FakeClient, want string) {
+	if got := len(ce.SentEvents()); got != 1 {
 		t.Error("Expected 1 event to be sent, got:", got)
+		return
 	}
 
-	if got := ce.Sent()[0].Type(); got != want {
+	if got := ce.SentEvents()[0].Type(); got != want {
 		t.Errorf("Expected %q event to be sent, got %q", want, got)
 	}
 }
 
-func validateNotSent(t *testing.T, ce *adaptertest.TestCloudEventsClient, want string) {
-	if got := len(ce.Sent()); got != 0 {
+func validateNotSent(t *testing.T, ce *test.FakeClient, want string) {
+	if got := len(ce.SentEvents()); got != 0 {
 		t.Error("Expected 0 events to be sent, got:", got)
 	}
 }
 
-func makeResourceAndTestingClient() (*resourceDelegate, *adaptertest.TestCloudEventsClient) {
-	ce := adaptertest.NewTestClient()
+func makeResourceAndTestingClient() (*resourceDelegate, *test.FakeClient) {
+	ce := test.NewFakeClient()
 	return &resourceDelegate{
 		ce:                  ce,
 		source:              "unit-test",
@@ -297,8 +298,8 @@ func makeResourceAndTestingClient() (*resourceDelegate, *adaptertest.TestCloudEv
 	}, ce
 }
 
-func makeRefAndTestingClient() (*resourceDelegate, *adaptertest.TestCloudEventsClient) {
-	ce := adaptertest.NewTestClient()
+func makeRefAndTestingClient() (*resourceDelegate, *test.FakeClient) {
+	ce := test.NewFakeClient()
 	return &resourceDelegate{
 		ce:                  ce,
 		source:              "unit-test",

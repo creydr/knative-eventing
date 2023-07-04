@@ -21,8 +21,8 @@ import (
 	"os"
 	"testing"
 
-	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.opencensus.io/stats/view"
+	"knative.dev/eventing/pkg/kncloudevents"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/leaderelection"
@@ -66,7 +66,7 @@ func TestMain_WithController_DisableHA(t *testing.T) {
 		MainWithInformers(ctx,
 			"mycomponent",
 			env,
-			func(ctx context.Context, processed EnvConfigAccessor, client cloudevents.Client) Adapter {
+			func(ctx context.Context, processed EnvConfigAccessor, client kncloudevents.Client) Adapter {
 				env := processed.(*myEnvConfig)
 
 				if env.Mode != "mymode" {
@@ -125,7 +125,7 @@ func TestMain_WithControllerHA(t *testing.T) {
 		MainWithInformers(ctx,
 			"mycomponent",
 			env,
-			func(ctx context.Context, processed EnvConfigAccessor, client cloudevents.Client) Adapter {
+			func(ctx context.Context, processed EnvConfigAccessor, client kncloudevents.Client) Adapter {
 				return &myAdapter{blocking: true}
 			})
 		done <- true

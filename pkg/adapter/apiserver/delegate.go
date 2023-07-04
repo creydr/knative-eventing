@@ -24,13 +24,16 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/eventing/pkg/adapter/apiserver/events"
+	"knative.dev/eventing/pkg/kncloudevents"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 type resourceDelegate struct {
-	ce                  cloudevents.Client
+	ce                  kncloudevents.Client
 	source              string
 	ref                 bool
 	apiServerSourceName string
+	target              duckv1.Addressable
 
 	logger *zap.SugaredLogger
 }
@@ -75,9 +78,33 @@ func (a *resourceDelegate) sendCloudEvent(ctx context.Context, event cloudevents
 	subject := event.Context.GetSubject()
 	a.logger.Debugf("sending cloudevent id: %s, source: %s, subject: %s", event.ID(), source, subject)
 
-	if result := a.ce.Send(ctx, event); !cloudevents.IsACK(result) {
-		a.logger.Errorw("failed to send cloudevent", zap.Error(result), zap.String("source", source),
-			zap.String("subject", subject), zap.String("id", event.ID()))
+	req, err := kncloudevents.NewRequest(ctx, a.target)
+	if err != nil {
+		a.logger.Errorw("failed to create cloudevent request",
+			zap.Error(err),
+			zap.Any("target", a.target),
+			zap.String("id", event.ID()))
+		return
+	}
+
+	err = req.BindEvent(ctx, event)
+	if err != nil {
+		a.logger.Errorw("failed to bind cloudevent to request",
+			zap.Error(err),
+			zap.Any("target", a.target),
+			zap.String("id", event.ID()))
+		return
+	}
+
+	resp, err := a.ce.Send(req)
+	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+		a.logger.Errorw("failed to send cloudevent",
+			zap.Error(err),
+			zap.String("response-status", resp.Status),
+			zap.Any("target", a.target),
+			zap.String("source", source),
+			zap.String("subject", subject),
+			zap.String("id", event.ID()))
 	} else {
 		a.logger.Debugf("cloudevent sent id: %s, source: %s, subject: %s", event.ID(), source, subject)
 	}

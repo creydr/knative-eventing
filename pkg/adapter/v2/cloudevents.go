@@ -70,37 +70,37 @@ func NewClientHTTPObserved(topt []http.Option, copt []ceclient.Option) (Client, 
 	}, nil
 }
 
-// NewCloudEventsClient returns a client that will apply the ceOverrides to
-// outbound events and report outbound event counts.
-func NewCloudEventsClient(target string, ceOverrides *duckv1.CloudEventOverrides, reporter source.StatsReporter) (Client, error) {
-	opts := make([]http.Option, 0)
-	if len(target) > 0 {
-		opts = append(opts, cloudevents.WithTarget(target))
-	}
-	return NewClient(ClientConfig{
-		CeOverrides: ceOverrides,
-		Reporter:    reporter,
-		Options:     opts,
-	})
-}
+// // NewCloudEventsClient returns a client that will apply the ceOverrides to
+// // outbound events and report outbound event counts.
+// func NewCloudEventsClient(target string, ceOverrides *duckv1.CloudEventOverrides, reporter source.StatsReporter) (Client, error) {
+// 	opts := make([]http.Option, 0)
+// 	if len(target) > 0 {
+// 		opts = append(opts, cloudevents.WithTarget(target))
+// 	}
+// 	return NewClient(ClientConfig{
+// 		CeOverrides: ceOverrides,
+// 		Reporter:    reporter,
+// 		Options:     opts,
+// 	})
+// }
 
-// NewCloudEventsClientWithOptions returns a client created with provided options
-func NewCloudEventsClientWithOptions(ceOverrides *duckv1.CloudEventOverrides, reporter source.StatsReporter, opts ...http.Option) (Client, error) {
-	return NewClient(ClientConfig{
-		CeOverrides: ceOverrides,
-		Reporter:    reporter,
-		Options:     opts,
-	})
-}
+// // NewCloudEventsClientWithOptions returns a client created with provided options
+// func NewCloudEventsClientWithOptions(ceOverrides *duckv1.CloudEventOverrides, reporter source.StatsReporter, opts ...http.Option) (Client, error) {
+// 	return NewClient(ClientConfig{
+// 		CeOverrides: ceOverrides,
+// 		Reporter:    reporter,
+// 		Options:     opts,
+// 	})
+// }
 
-// NewCloudEventsClientCRStatus returns a client CR status
-func NewCloudEventsClientCRStatus(env EnvConfigAccessor, reporter source.StatsReporter, crStatusEventClient *crstatusevent.CRStatusEventClient) (Client, error) {
-	return NewClient(ClientConfig{
-		Env:                 env,
-		Reporter:            reporter,
-		CrStatusEventClient: crStatusEventClient,
-	})
-}
+// // NewCloudEventsClientCRStatus returns a client CR status
+// func NewCloudEventsClientCRStatus(env EnvConfigAccessor, reporter source.StatsReporter, crStatusEventClient *crstatusevent.CRStatusEventClient) (Client, error) {
+// 	return NewClient(ClientConfig{
+// 		Env:                 env,
+// 		Reporter:            reporter,
+// 		CrStatusEventClient: crStatusEventClient,
+// 	})
+// }
 
 type ClientConfig struct {
 	Env                 EnvConfigAccessor

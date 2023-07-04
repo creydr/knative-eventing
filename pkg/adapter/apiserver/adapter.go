@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"time"
 
-	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -33,6 +32,7 @@ import (
 
 	"knative.dev/eventing/pkg/adapter/v2"
 	v1 "knative.dev/eventing/pkg/apis/sources/v1"
+	"knative.dev/eventing/pkg/kncloudevents"
 )
 
 type envConfig struct {
@@ -43,7 +43,7 @@ type envConfig struct {
 }
 
 type apiServerAdapter struct {
-	ce     cloudevents.Client
+	ce     kncloudevents.Client
 	logger *zap.SugaredLogger
 
 	config Config

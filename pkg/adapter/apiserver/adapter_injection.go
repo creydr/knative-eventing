@@ -20,9 +20,9 @@ import (
 	"context"
 	"encoding/json"
 
-	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"k8s.io/client-go/rest"
 	"knative.dev/eventing/pkg/adapter/v2"
+	"knative.dev/eventing/pkg/kncloudevents"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/clients/dynamicclient"
@@ -57,7 +57,7 @@ func NewEnvConfig() adapter.EnvConfigAccessor {
 	return &envConfig{}
 }
 
-func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, ceClient cloudevents.Client) adapter.Adapter {
+func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, ceClient kncloudevents.Client) adapter.Adapter {
 	logger := logging.FromContext(ctx)
 	env := processed.(*envConfig)
 

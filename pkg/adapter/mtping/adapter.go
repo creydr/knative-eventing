@@ -24,7 +24,6 @@ import (
 	"strconv"
 	"sync"
 
-	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/robfig/cron/v3"
 	"go.uber.org/zap"
 
@@ -33,6 +32,7 @@ import (
 
 	"knative.dev/eventing/pkg/adapter/v2"
 	sourcesv1 "knative.dev/eventing/pkg/apis/sources/v1"
+	"knative.dev/eventing/pkg/kncloudevents"
 )
 
 const (
@@ -56,9 +56,9 @@ func NewEnvConfig() adapter.EnvConfigAccessor {
 	return &adapter.EnvConfig{}
 }
 
-func NewAdapter(ctx context.Context, env adapter.EnvConfigAccessor, ceClient cloudevents.Client) adapter.Adapter {
+func NewAdapter(ctx context.Context, env adapter.EnvConfigAccessor, ceClient kncloudevents.Client) adapter.Adapter {
 	logger := logging.FromContext(ctx)
-	runner := NewCronJobsRunner(adapter.GetClientConfig(ctx), kubeclient.Get(ctx), logging.FromContext(ctx))
+	runner := NewCronJobsRunner(ceClient, kubeclient.Get(ctx), logging.FromContext(ctx))
 
 	return &mtpingAdapter{
 		logger:    logger,

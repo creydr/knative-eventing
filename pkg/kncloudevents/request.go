@@ -53,3 +53,7 @@ func (req *Request) BindEvent(ctx context.Context, event event.Event) error {
 
 	return http.WriteRequest(ctx, message, req.HTTPRequest())
 }
+
+func (req *Request) SetHeader(key, value string) {
+	req.Header.Set(key, value)
+}

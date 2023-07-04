@@ -17,12 +17,15 @@ limitations under the License.
 package kncloudevents
 
 import (
+	"context"
 	"fmt"
 	nethttp "net/http"
 	"strconv"
 	"time"
 
+	"github.com/cloudevents/sdk-go/v2/protocol/http"
 	"github.com/hashicorp/go-retryablehttp"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 const RetryAfterHeader = "Retry-After"
@@ -30,6 +33,8 @@ const RetryAfterHeader = "Retry-After"
 type Client interface {
 	Send(*Request) (*nethttp.Response, error)
 	SendWithRetries(*Request, *RetryConfig) (*nethttp.Response, error)
+	SetTimeout(time.Duration)
+	AddRequestOptions(...RequestOption)
 }
 
 var _ Client = (*clientImpl)(nil)
@@ -39,19 +44,31 @@ func NewClient() Client {
 	return &c
 }
 
-type clientImpl struct{}
+type clientImpl struct {
+	timeout        time.Duration
+	requestOptions []RequestOption
+}
 
 func newClientImpl() clientImpl {
-	return clientImpl{}
+	return clientImpl{
+		requestOptions: make([]RequestOption, 0),
+	}
 }
 
 func (c *clientImpl) Send(req *Request) (*nethttp.Response, error) {
-	client, err := getClientForAddressable(req.target)
+	if err := c.applyRequestOptions(req); err != nil {
+		return nil, err
+	}
+
+	client, err := c.getConfiguredHttpClient(req.target)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get client for addressable: %w", err)
 	}
 
-	return client.Do(req.HTTPRequest())
+	resp, err := client.Do(req.Request)
+	c.reportMetrics(nil, resp, err)
+
+	return resp, err
 }
 
 func (c *clientImpl) SendWithRetries(req *Request, config *RetryConfig) (*nethttp.Response, error) {
@@ -59,7 +76,11 @@ func (c *clientImpl) SendWithRetries(req *Request, config *RetryConfig) (*nethtt
 		return c.Send(req)
 	}
 
-	client, err := getClientForAddressable(req.target)
+	if err := c.applyRequestOptions(req); err != nil {
+		return nil, err
+	}
+
+	client, err := c.getConfiguredHttpClient(req.target)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get client for addressable: %w", err)
 	}
@@ -90,7 +111,84 @@ func (c *clientImpl) SendWithRetries(req *Request, config *RetryConfig) (*nethtt
 		return nil, err
 	}
 
-	return retryableClient.Do(retryableReq)
+	resp, err := retryableClient.Do(retryableReq)
+	c.reportMetrics(nil, resp, err)
+
+	return resp, err
+}
+
+func (c *clientImpl) SetTimeout(t time.Duration) {
+	c.timeout = t
+}
+
+func (c *clientImpl) AddRequestOptions(opts ...RequestOption) {
+	if len(opts) > 0 {
+		c.requestOptions = append(c.requestOptions, opts...)
+	}
+}
+
+func (c *clientImpl) applyRequestOptions(req *Request) error {
+	for _, opt := range c.requestOptions {
+		if err := opt(req); err != nil {
+			return fmt.Errorf("could not apply request option: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (c *clientImpl) getConfiguredHttpClient(target duckv1.Addressable) (*nethttp.Client, error) {
+	client, err := getClientForAddressable(target)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get client for addressable: %w", err)
+	}
+
+	// apply changes on client copy
+	clientCopy := *client
+	if c.timeout > 0 {
+		clientCopy.Timeout = c.timeout
+	}
+
+	return &clientCopy, nil
+}
+
+func (c *clientImpl) reportMetrics(ctx context.Context, response *nethttp.Response, err error) {
+	// TODO: implement
+	// check on pkg/adapter/v2/cloudevents.go
+
+	event, err := http.NewEventFromHTTPRequest(response.Request)
+	if err != nil {
+		return
+	}
+
+	// work with event...
+	event.ID()
+}
+
+// MetricTag context
+type MetricTag struct {
+	Name          string
+	Namespace     string
+	ResourceGroup string
+}
+
+type metricKey struct{}
+
+// WithMetricTag returns a copy of parent context in which the
+// value associated with metric key is the supplied metric tag.
+func WithMetricTag(ctx context.Context, metric MetricTag) context.Context {
+	return context.WithValue(ctx, metricKey{}, metric)
+}
+
+// MetricTagFrom returns the metric tag stored in context.
+// Returns nil if no metric tag is set in context
+func MetricTagFrom(ctx context.Context) *MetricTag {
+	val := ctx.Value(metricKey{})
+	if val == nil {
+		return nil
+	}
+	mt := val.(MetricTag)
+	return &mt
 }
 
 // generateBackoffFunction returns a valid retryablehttp.Backoff implementation which
