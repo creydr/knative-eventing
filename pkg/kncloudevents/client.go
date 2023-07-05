@@ -25,15 +25,17 @@ import (
 
 	"github.com/cloudevents/sdk-go/v2/protocol/http"
 	"github.com/hashicorp/go-retryablehttp"
+	"knative.dev/eventing/pkg/metrics/source"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 const RetryAfterHeader = "Retry-After"
 
 type Client interface {
-	Send(*Request) (*nethttp.Response, error)
-	SendWithRetries(*Request, *RetryConfig) (*nethttp.Response, error)
+	Send(context.Context, *Request) (*nethttp.Response, error)
+	SendWithRetries(context.Context, *Request, *RetryConfig) (*nethttp.Response, error)
 	SetTimeout(time.Duration)
+	SetStatsReporter(source.StatsReporter)
 	AddRequestOptions(...RequestOption)
 }
 
@@ -46,6 +48,7 @@ func NewClient() Client {
 
 type clientImpl struct {
 	timeout        time.Duration
+	statsReporter  source.StatsReporter
 	requestOptions []RequestOption
 }
 
@@ -55,9 +58,9 @@ func newClientImpl() clientImpl {
 	}
 }
 
-func (c *clientImpl) Send(req *Request) (*nethttp.Response, error) {
+func (c *clientImpl) Send(ctx context.Context, req *Request) (*nethttp.Response, error) {
 	if err := c.applyRequestOptions(req); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not apply request options: %w", err)
 	}
 
 	client, err := c.getConfiguredHttpClient(req.target)
@@ -66,18 +69,21 @@ func (c *clientImpl) Send(req *Request) (*nethttp.Response, error) {
 	}
 
 	resp, err := client.Do(req.Request)
-	c.reportMetrics(nil, resp, err)
+	if err != nil {
+		err = fmt.Errorf("could not execute request: %w", err)
+	}
+	c.reportMetrics(ctx, resp, err)
 
 	return resp, err
 }
 
-func (c *clientImpl) SendWithRetries(req *Request, config *RetryConfig) (*nethttp.Response, error) {
+func (c *clientImpl) SendWithRetries(ctx context.Context, req *Request, config *RetryConfig) (*nethttp.Response, error) {
 	if config == nil {
-		return c.Send(req)
+		return c.Send(ctx, req)
 	}
 
 	if err := c.applyRequestOptions(req); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not apply request options: %w", err)
 	}
 
 	client, err := c.getConfiguredHttpClient(req.target)
@@ -108,17 +114,24 @@ func (c *clientImpl) SendWithRetries(req *Request, config *RetryConfig) (*nethtt
 
 	retryableReq, err := retryablehttp.FromRequest(req.HTTPRequest())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not create retryable request: %w", err)
 	}
 
 	resp, err := retryableClient.Do(retryableReq)
-	c.reportMetrics(nil, resp, err)
+	if err != nil {
+		err = fmt.Errorf("could not execute request: %w", err)
+	}
+	c.reportMetrics(ctx, resp, err)
 
 	return resp, err
 }
 
 func (c *clientImpl) SetTimeout(t time.Duration) {
 	c.timeout = t
+}
+
+func (c *clientImpl) SetStatsReporter(reporter source.StatsReporter) {
+	c.statsReporter = reporter
 }
 
 func (c *clientImpl) AddRequestOptions(opts ...RequestOption) {
@@ -153,16 +166,33 @@ func (c *clientImpl) getConfiguredHttpClient(target duckv1.Addressable) (*nethtt
 }
 
 func (c *clientImpl) reportMetrics(ctx context.Context, response *nethttp.Response, err error) {
-	// TODO: implement
-	// check on pkg/adapter/v2/cloudevents.go
+	if c.statsReporter == nil {
+		return
+	}
+
+	if err != nil {
+		// TODO report metrics for error
+		return
+	}
 
 	event, err := http.NewEventFromHTTPRequest(response.Request)
 	if err != nil {
 		return
 	}
 
-	// work with event...
-	event.ID()
+	tags := MetricTagFrom(ctx)
+	reportArgs := &source.ReportArgs{
+		Namespace:     tags.Namespace,
+		EventSource:   event.Source(),
+		EventType:     event.Type(),
+		Name:          tags.Name,
+		ResourceGroup: tags.ResourceGroup,
+	}
+
+	c.statsReporter.ReportEventCount(reportArgs, response.StatusCode)
+
+	// TODO check if we can get the number of retries from SendWithRetries
+	// client and report these metrics via c.statsReporter.ReportRetryEventCount
 }
 
 // MetricTag context

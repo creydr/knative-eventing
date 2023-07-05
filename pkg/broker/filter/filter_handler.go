@@ -319,7 +319,7 @@ func (h *Handler) sendEvent(ctx context.Context, headers http.Header, target duc
 	}
 
 	start := time.Now()
-	resp, err := h.client.Send(req)
+	resp, err := h.client.Send(ctx, req)
 	dispatchTime := time.Since(start)
 	if err != nil {
 		responseErr.ResponseCode = http.StatusInternalServerError

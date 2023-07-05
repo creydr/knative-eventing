@@ -100,7 +100,7 @@ func Test_clientImpl_SendWithRetries(t *testing.T) {
 			target := urlstrToAddressable(t, server.URL)
 			request, err := NewRequest(ctx, target)
 			assert.Nil(t, err)
-			got, err := client.SendWithRetries(request, tt.config)
+			got, err := client.SendWithRetries(ctx, request, tt.config)
 			if err != nil {
 				t.Fatalf("SendWithRetries() error = %v, wantErr nil", err)
 			}
@@ -138,6 +138,7 @@ func Test_clientImpl_SendWithRetriesWithBufferedMessage(t *testing.T) {
 		}
 	}))
 
+	ctx := context.TODO()
 	client := newClientImpl()
 	target := urlstrToAddressable(t, server.URL)
 	request, err := NewRequest(context.TODO(), target)
@@ -151,7 +152,7 @@ func Test_clientImpl_SendWithRetriesWithBufferedMessage(t *testing.T) {
 	err = cehttp.WriteRequest(context.TODO(), bufferedMessage, request.HTTPRequest())
 	assert.Nil(t, err)
 
-	got, err := client.SendWithRetries(request, config)
+	got, err := client.SendWithRetries(ctx, request, config)
 	if err != nil {
 		t.Fatalf("SendWithRetries() error = %v, wantErr nil", err)
 	}
@@ -190,12 +191,13 @@ func Test_clientImpl_SendWithRetriesWithSingleRequestTimeout(t *testing.T) {
 		RequestTimeout: timeout,
 	}
 
+	ctx := context.TODO()
 	target := urlstrToAddressable(t, server.URL)
 	client := newClientImpl()
 	request, err := NewRequest(context.TODO(), target)
 	require.NoError(t, err)
 
-	got, err := client.SendWithRetries(request, config)
+	got, err := client.SendWithRetries(ctx, request, config)
 
 	require.Equal(t, 5, int(atomic.LoadInt32(&n)))
 	require.NoError(t, err)
@@ -266,12 +268,13 @@ func Test_clientImpl_SendWithRetriesOnNetworkErrors(t *testing.T) {
 		return checkRetry(ctx, resp, err)
 	}
 
+	ctx := context.TODO()
 	client := newClientImpl()
 	targetAddressable := urlstrToAddressable(t, "http://"+target)
 	request, err := NewRequest(context.TODO(), targetAddressable)
 	assert.Nil(t, err)
 
-	_, err = client.SendWithRetries(request, &r)
+	_, err = client.SendWithRetries(ctx, request, &r)
 	assert.Nil(t, err)
 
 	// nCalls keeps track of how many times a call to check retry occurs.

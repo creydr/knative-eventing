@@ -227,7 +227,7 @@ func (d *MessageDispatcherImpl) executeRequest(ctx context.Context,
 	}
 
 	start := time.Now()
-	response, err := d.client.SendWithRetries(req, configs)
+	response, err := d.client.SendWithRetries(ctx, req, configs)
 	dispatchTime := time.Since(start)
 	if err != nil {
 		execInfo.Time = dispatchTime

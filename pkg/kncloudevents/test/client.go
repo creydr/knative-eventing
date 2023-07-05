@@ -26,6 +26,7 @@ import (
 	"github.com/cloudevents/sdk-go/v2/event"
 	"github.com/cloudevents/sdk-go/v2/protocol/http"
 	"knative.dev/eventing/pkg/kncloudevents"
+	"knative.dev/eventing/pkg/metrics/source"
 )
 
 var _ kncloudevents.Client = (*FakeClient)(nil)
@@ -54,7 +55,7 @@ func (c *FakeClient) SentEvents() []event.Event {
 	return c.sentEvents
 }
 
-func (c *FakeClient) Send(request *kncloudevents.Request) (*nethttp.Response, error) {
+func (c *FakeClient) Send(ctx context.Context, request *kncloudevents.Request) (*nethttp.Response, error) {
 	if c.delay > 0 {
 		time.Sleep(c.delay)
 	}
@@ -79,12 +80,16 @@ func (c *FakeClient) Send(request *kncloudevents.Request) (*nethttp.Response, er
 	}, nil
 }
 
-func (c *FakeClient) SendWithRetries(request *kncloudevents.Request, config *kncloudevents.RetryConfig) (*nethttp.Response, error) {
-	return c.Send(request)
+func (c *FakeClient) SendWithRetries(ctx context.Context, request *kncloudevents.Request, config *kncloudevents.RetryConfig) (*nethttp.Response, error) {
+	return c.Send(ctx, request)
 }
 
 func (c *FakeClient) SetTimeout(time time.Duration) {
 	// in the test client we don't care about client timeouts
+}
+
+func (c *FakeClient) SetStatsReporter(r source.StatsReporter) {
+	// in the test client we don't care about the reporter yet
 }
 
 func (c *FakeClient) AddRequestOptions(opts ...kncloudevents.RequestOption) {

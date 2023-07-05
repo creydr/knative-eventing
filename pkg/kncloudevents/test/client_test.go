@@ -63,7 +63,7 @@ func Test_Client_SentEvents(t *testing.T) {
 				err = req.BindEvent(ctx, event)
 				require.Nil(t, err)
 
-				_, err = imClient.Send(req)
+				_, err = imClient.Send(ctx, req)
 				require.Nil(t, err)
 			}
 

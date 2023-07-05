@@ -96,7 +96,7 @@ func (a *resourceDelegate) sendCloudEvent(ctx context.Context, event cloudevents
 		return
 	}
 
-	resp, err := a.ce.Send(req)
+	resp, err := a.ce.Send(ctx, req)
 	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
 		a.logger.Errorw("failed to send cloudevent",
 			zap.Error(err),

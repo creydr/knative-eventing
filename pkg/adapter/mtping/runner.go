@@ -156,7 +156,7 @@ func (a *cronJobsRunner) cronTick(ctx context.Context, src *sourcesv1.PingSource
 		}
 
 		retryConfig := kncloudevents.RetryConfigFrom(ctx)
-		_, err = a.ceClient.SendWithRetries(req, retryConfig)
+		_, err = a.ceClient.SendWithRetries(ctx, req, retryConfig)
 		if err != nil {
 			// Exhausted number of retries. Event is lost.
 

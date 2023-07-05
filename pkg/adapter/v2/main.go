@@ -222,19 +222,20 @@ func MainWithInformers(ctx context.Context, component string, env EnvConfigAcces
 	}
 	ctx = withClientConfig(ctx, clientConfig)
 
-	ceClient := kncloudevents.NewClient()
+	client := kncloudevents.NewClient()
 	if sinkWait := env.GetSinktimeout(); sinkWait > 0 {
-		ceClient.SetTimeout(time.Duration(sinkWait) * time.Second)
+		client.SetTimeout(time.Duration(sinkWait) * time.Second)
 	}
 
-	ceClient.AddRequestOptions(kncloudevents.WithHeader(apis.KnNamespaceHeader, env.GetNamespace()))
+	client.SetStatsReporter(reporter)
+	client.AddRequestOptions(kncloudevents.WithHeader(apis.KnNamespaceHeader, env.GetNamespace()))
 
 	if overrides, err := env.GetCloudEventOverrides(); err == nil {
-		ceClient.AddRequestOptions(kncloudevents.WithCEOverride(overrides))
+		client.AddRequestOptions(kncloudevents.WithCEOverride(overrides))
 	}
 
 	// Configuring the adapter
-	adapter := ctor(ctx, env, ceClient)
+	adapter := ctor(ctx, env, client)
 
 	// Build the leader elector
 	leConfig, err := env.GetLeaderElectionConfig()
