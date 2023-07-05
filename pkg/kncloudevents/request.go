@@ -18,6 +18,7 @@ package kncloudevents
 
 import (
 	"context"
+	"fmt"
 	nethttp "net/http"
 
 	"github.com/cloudevents/sdk-go/v2/binding"
@@ -51,7 +52,11 @@ func (req *Request) BindEvent(ctx context.Context, event event.Event) error {
 	message := binding.ToMessage(&event)
 	defer message.Finish(nil)
 
-	return http.WriteRequest(ctx, message, req.HTTPRequest())
+	if err := http.WriteRequest(ctx, message, req.Request); err != nil {
+		return fmt.Errorf("could not write event (id: %s) to request: %w", event.ID(), err)
+	}
+
+	return nil
 }
 
 func (req *Request) SetHeader(key, value string) {

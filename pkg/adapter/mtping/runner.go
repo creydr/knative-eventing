@@ -147,20 +147,17 @@ func (a *cronJobsRunner) cronTick(ctx context.Context, src *sourcesv1.PingSource
 
 		req, err := kncloudevents.NewRequest(ctx, target)
 		if err != nil {
-			a.Logger.Error("failed to create cloud events request", zap.Any("target", target), zap.Error(err))
+			a.Logger.Errorw("failed to create cloud events request", zap.Any("target", target), zap.Error(err))
 			return
 		}
 
 		if err := req.BindEvent(ctx, event); err != nil {
-			a.Logger.Error("failed to bind event to request", zap.Any("target", target), zap.Error(err))
+			a.Logger.Errorw("failed to bind event to request", zap.Any("target", target), zap.Error(err))
 		}
 
-		retryConfig := kncloudevents.RetryConfigFrom(ctx)
-		_, err = a.ceClient.SendWithRetries(ctx, req, retryConfig)
+		_, err = a.ceClient.Send(ctx, req)
 		if err != nil {
-			// Exhausted number of retries. Event is lost.
-
-			a.Logger.Error("failed to send cloudevent", zap.Error(err))
+			a.Logger.Errorw("failed to send cloudevent", zap.Error(err))
 		}
 	}
 }

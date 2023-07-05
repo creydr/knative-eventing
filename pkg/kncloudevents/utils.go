@@ -42,7 +42,7 @@ func WriteHTTPRequestWithAdditionalHeaders(ctx context.Context, message binding.
 
 func WriteRequestWithAdditionalHeaders(ctx context.Context, message binding.Message, req *Request,
 	additionalHeaders nethttp.Header, transformers ...binding.Transformer) error {
-	return WriteHTTPRequestWithAdditionalHeaders(ctx, message, req.HTTPRequest(), additionalHeaders, transformers...)
+	return WriteHTTPRequestWithAdditionalHeaders(ctx, message, req.Request, additionalHeaders, transformers...)
 }
 
 type TypeExtractorTransformer string

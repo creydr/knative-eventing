@@ -25,10 +25,10 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
-type RequestOption func(*Request) error
+type RequestOption func(context.Context, *Request) error
 
 func WithHeader(key, value string) RequestOption {
-	return func(r *Request) error {
+	return func(_ context.Context, r *Request) error {
 		r.SetHeader(key, value)
 
 		return nil
@@ -36,12 +36,12 @@ func WithHeader(key, value string) RequestOption {
 }
 
 func WithCEOverride(overrides *duckv1.CloudEventOverrides) RequestOption {
-	return func(req *Request) error {
+	return func(ctx context.Context, req *Request) error {
 		// get event from request
 		message := http.NewMessageFromHttpRequest(req.Request)
 		defer message.Finish(nil)
 
-		event, err := binding.ToEvent(context.TODO(), message)
+		event, err := binding.ToEvent(ctx, message)
 		if err != nil {
 			return fmt.Errorf("could not get event from request: %w", err)
 		}
@@ -52,9 +52,7 @@ func WithCEOverride(overrides *duckv1.CloudEventOverrides) RequestOption {
 		}
 
 		// write event back to request
-		message2 := binding.ToMessage(event)
-		defer message2.Finish(nil)
-		if err != http.WriteRequest(context.TODO(), message, req.Request) {
+		if err = req.BindEvent(ctx, *event); err != nil {
 			return fmt.Errorf("could not write updated event back to request: %w", err)
 		}
 

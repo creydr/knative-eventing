@@ -59,7 +59,7 @@ func newClientImpl() clientImpl {
 }
 
 func (c *clientImpl) Send(ctx context.Context, req *Request) (*nethttp.Response, error) {
-	if err := c.applyRequestOptions(req); err != nil {
+	if err := c.applyRequestOptions(ctx, req); err != nil {
 		return nil, fmt.Errorf("could not apply request options: %w", err)
 	}
 
@@ -69,9 +69,6 @@ func (c *clientImpl) Send(ctx context.Context, req *Request) (*nethttp.Response,
 	}
 
 	resp, err := client.Do(req.Request)
-	if err != nil {
-		err = fmt.Errorf("could not execute request: %w", err)
-	}
 	c.reportMetrics(ctx, resp, err)
 
 	return resp, err
@@ -82,7 +79,7 @@ func (c *clientImpl) SendWithRetries(ctx context.Context, req *Request, config *
 		return c.Send(ctx, req)
 	}
 
-	if err := c.applyRequestOptions(req); err != nil {
+	if err := c.applyRequestOptions(ctx, req); err != nil {
 		return nil, fmt.Errorf("could not apply request options: %w", err)
 	}
 
@@ -112,15 +109,12 @@ func (c *clientImpl) SendWithRetries(ctx context.Context, req *Request, config *
 		},
 	}
 
-	retryableReq, err := retryablehttp.FromRequest(req.HTTPRequest())
+	retryableReq, err := retryablehttp.FromRequest(req.Request)
 	if err != nil {
 		return nil, fmt.Errorf("could not create retryable request: %w", err)
 	}
 
 	resp, err := retryableClient.Do(retryableReq)
-	if err != nil {
-		err = fmt.Errorf("could not execute request: %w", err)
-	}
 	c.reportMetrics(ctx, resp, err)
 
 	return resp, err
@@ -140,9 +134,9 @@ func (c *clientImpl) AddRequestOptions(opts ...RequestOption) {
 	}
 }
 
-func (c *clientImpl) applyRequestOptions(req *Request) error {
+func (c *clientImpl) applyRequestOptions(ctx context.Context, req *Request) error {
 	for _, opt := range c.requestOptions {
-		if err := opt(req); err != nil {
+		if err := opt(ctx, req); err != nil {
 			return fmt.Errorf("could not apply request option: %w", err)
 		}
 	}
