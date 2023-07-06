@@ -60,7 +60,7 @@ func (c *FakeClient) Send(ctx context.Context, request *kncloudevents.Request) (
 		time.Sleep(c.delay)
 	}
 
-	if err := c.applyRequestOptions(request); err != nil {
+	if err := c.applyRequestOptions(ctx, request); err != nil {
 		return nil, err
 	}
 
@@ -96,9 +96,9 @@ func (c *FakeClient) AddRequestOptions(opts ...kncloudevents.RequestOption) {
 	c.requestOptions = append(c.requestOptions, opts...)
 }
 
-func (c *FakeClient) applyRequestOptions(req *kncloudevents.Request) error {
+func (c *FakeClient) applyRequestOptions(ctx context.Context, req *kncloudevents.Request) error {
 	for _, opt := range c.requestOptions {
-		if err := opt(req); err != nil {
+		if err := opt(ctx, req); err != nil {
 			return fmt.Errorf("could not apply request option: %w", err)
 		}
 	}

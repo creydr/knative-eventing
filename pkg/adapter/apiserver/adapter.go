@@ -33,6 +33,7 @@ import (
 	"knative.dev/eventing/pkg/adapter/v2"
 	v1 "knative.dev/eventing/pkg/apis/sources/v1"
 	"knative.dev/eventing/pkg/kncloudevents"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 type envConfig struct {
@@ -44,6 +45,7 @@ type envConfig struct {
 
 type apiServerAdapter struct {
 	ce     kncloudevents.Client
+	target duckv1.Addressable
 	logger *zap.SugaredLogger
 
 	config Config
@@ -66,6 +68,7 @@ func (a *apiServerAdapter) start(ctx context.Context, stopCh <-chan struct{}) er
 
 	var delegate cache.Store = &resourceDelegate{
 		ce:                  a.ce,
+		target:              a.target,
 		source:              a.source,
 		logger:              a.logger,
 		ref:                 a.config.EventMode == v1.ReferenceMode,

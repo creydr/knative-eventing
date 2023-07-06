@@ -18,6 +18,8 @@ package apiserver
 
 import (
 	"context"
+	"fmt"
+	"io/ioutil"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/google/uuid"
@@ -97,10 +99,22 @@ func (a *resourceDelegate) sendCloudEvent(ctx context.Context, event cloudevents
 	}
 
 	resp, err := a.ce.Send(ctx, req)
-	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+	if err != nil {
 		a.logger.Errorw("failed to send cloudevent",
 			zap.Error(err),
+			zap.Any("target", a.target),
+			zap.String("source", source),
+			zap.String("subject", subject),
+			zap.String("id", event.ID()))
+		return
+	}
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := ioutil.ReadAll(resp.Body)
+		a.logger.Errorw("failed to send cloudevent - unexpected status code",
 			zap.String("response-status", resp.Status),
+			zap.ByteString("response-body", respBody),
+			zap.String("request", fmt.Sprintf("%#v", resp.Request)),
 			zap.Any("target", a.target),
 			zap.String("source", source),
 			zap.String("subject", subject),

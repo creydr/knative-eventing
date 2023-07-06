@@ -230,9 +230,9 @@ func MainWithInformers(ctx context.Context, component string, env EnvConfigAcces
 	client.SetStatsReporter(reporter)
 	client.AddRequestOptions(kncloudevents.WithHeader(apis.KnNamespaceHeader, env.GetNamespace()))
 
-	if overrides, err := env.GetCloudEventOverrides(); err == nil {
-		client.AddRequestOptions(kncloudevents.WithCEOverride(overrides))
-	}
+	// if overrides, err := env.GetCloudEventOverrides(); err == nil {
+	// 	client.AddRequestOptions(kncloudevents.WithCEOverride(overrides))
+	// }
 
 	// Configuring the adapter
 	adapter := ctor(ctx, env, client)

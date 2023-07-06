@@ -175,6 +175,9 @@ func (c *clientImpl) reportMetrics(ctx context.Context, response *nethttp.Respon
 	}
 
 	tags := MetricTagFrom(ctx)
+	if tags == nil {
+		return
+	}
 	reportArgs := &source.ReportArgs{
 		Namespace:     tags.Namespace,
 		EventSource:   event.Source(),

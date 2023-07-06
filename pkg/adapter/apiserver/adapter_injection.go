@@ -23,6 +23,8 @@ import (
 	"k8s.io/client-go/rest"
 	"knative.dev/eventing/pkg/adapter/v2"
 	"knative.dev/eventing/pkg/kncloudevents"
+	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/clients/dynamicclient"
@@ -66,6 +68,16 @@ func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, ceClie
 		panic("failed to create config from json")
 	}
 
+	sinkUrl, err := apis.ParseURL(env.GetSink())
+	if err != nil {
+		panic("failed to parse sink URL: " + err.Error())
+	}
+
+	target := duckv1.Addressable{
+		URL:     sinkUrl,
+		CACerts: env.GetCACerts(),
+	}
+
 	return &apiServerAdapter{
 		discover: kubeclient.Get(ctx).Discovery(),
 		k8s:      dynamicclient.Get(ctx),
@@ -73,6 +85,7 @@ func NewAdapter(ctx context.Context, processed adapter.EnvConfigAccessor, ceClie
 		source:   Get(ctx),
 		name:     env.Name,
 		config:   config,
+		target:   target,
 
 		logger: logger,
 	}
