@@ -1,0 +1,35 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "intercept-imc-controller",
+            "type": "shell",
+            "command": "telepresence quit; telepresence intercept imc-controller --namespace knative-eventing --port 8443:https-webhook --env-file ${workspaceFolder}/imc-controller.env",
+        },
+        {
+            "label": "intercept-eventing-controller",
+            "type": "shell",
+            "command": "kubectl -n knative-eventing expose deploy/eventing-controller --dry-run=client -o yaml | kubectl apply -f - ; telepresence quit; telepresence intercept eventing-controller --namespace knative-eventing --port 8080:8080 --env-file ${workspaceFolder}/eventing-controller.env",
+        },
+        {
+            "label": "intercept-eventing-webhook",
+            "type": "shell",
+            "command": "telepresence quit; telepresence intercept eventing-webhook --namespace knative-eventing --port 8443:https-webhook --env-file ${workspaceFolder}/eventing-webhook.env",
+        },
+        {
+            "label": "intercept-broker-filter",
+            "type": "shell",
+            "command": "telepresence quit; telepresence intercept broker-filter --namespace knative-eventing --port 8080:http --workload mt-broker-filter --env-file ${workspaceFolder}/broker-filter.env",
+        },
+        {
+            "label": "intercept-imc-dispatcher",
+            "type": "shell",
+            "command": "telepresence quit; telepresence intercept imc-dispatcher --namespace knative-eventing --port 8080:http-dispatcher --env-file ${workspaceFolder}/imc-dispatcher.env",
+        },
+        {
+            "label": "quit-telepresence",
+            "type": "shell",
+            "command": "telepresence quit"
+        }
+    ]
+}
