@@ -111,7 +111,8 @@ type senderConfig struct {
 
 // SendEvent sends the given event to the given destination.
 func SendEvent(ctx context.Context, event event.Event, destination duckv1.Addressable, options ...SendOption) (*DispatchInfo, error) {
-	message := binding.ToMessage(&event)
+	c := event.Clone()
+	message := binding.ToMessage(&c)
 
 	return SendMessage(ctx, message, destination, options...)
 }
