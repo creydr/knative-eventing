@@ -261,24 +261,6 @@ func WithTriggerSubscriberResolvedFailed(reason, message string) TriggerOption {
 	}
 }
 
-func WithTriggerOIDCServiceAccountResolvedSucceeded() TriggerOption {
-	return func(t *v1.Trigger) {
-		t.Status.MarkOIDCServiceAccountResolvedSucceeded()
-	}
-}
-
-func WithTriggerOIDCServiceAccountResolvedSucceededBecauseOIDCFeatureDisabled() TriggerOption {
-	return func(t *v1.Trigger) {
-		t.Status.MarkOIDCServiceAccountResolvedSucceededWithReason("OIDC authentication feature disabled", "")
-	}
-}
-
-func WithTriggerOIDCServiceAccountResolvedFailed(reason, message string) TriggerOption {
-	return func(t *v1.Trigger) {
-		t.Status.MarkOIDCServiceAccountResolvedFailed(reason, message)
-	}
-}
-
 func WithTriggerOIDCServiceAccountName(name string) TriggerOption {
 	return func(t *v1.Trigger) {
 		if t.Status.Auth == nil {

@@ -148,12 +148,8 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, t *eventingv1.Trigger) p
 		}
 
 		if err := auth.EnsureOIDCServiceAccountExistsForResource(ctx, r.kubeclient, eventingv1.SchemeGroupVersion.WithKind("Trigger"), t.ObjectMeta); err != nil {
-			t.Status.MarkOIDCServiceAccountResolvedFailed("Unable to resolve service account for OIDC authentication", "%v", err)
 			return err
 		}
-		t.Status.MarkOIDCServiceAccountResolvedSucceeded()
-	} else {
-		t.Status.MarkOIDCServiceAccountResolvedSucceededWithReason("OIDC authentication feature disabled", "")
 	}
 
 	sub, err := r.subscribeToBrokerChannel(ctx, b, t, brokerTrigger)

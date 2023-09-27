@@ -154,9 +154,6 @@ func TestTriggerInitializeConditions(t *testing.T) {
 					Type:   TriggerConditionDependency,
 					Status: corev1.ConditionUnknown,
 				}, {
-					Type:   TriggerConditionOIDCServiceAccountResolved,
-					Status: corev1.ConditionUnknown,
-				}, {
 					Type:   TriggerConditionReady,
 					Status: corev1.ConditionUnknown,
 				}, {
@@ -190,19 +187,17 @@ func TestTriggerInitializeConditions(t *testing.T) {
 				}, {
 					Type:   TriggerConditionDependency,
 					Status: corev1.ConditionUnknown,
-				}, {
-					Type:   TriggerConditionOIDCServiceAccountResolved,
-					Status: corev1.ConditionUnknown,
-				}, {
-					Type:   TriggerConditionReady,
-					Status: corev1.ConditionUnknown,
-				}, {
-					Type:   TriggerConditionSubscriberResolved,
-					Status: corev1.ConditionUnknown,
-				}, {
-					Type:   TriggerConditionSubscribed,
-					Status: corev1.ConditionUnknown,
 				},
+					{
+						Type:   TriggerConditionReady,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   TriggerConditionSubscriberResolved,
+						Status: corev1.ConditionUnknown,
+					}, {
+						Type:   TriggerConditionSubscribed,
+						Status: corev1.ConditionUnknown,
+					},
 				},
 			},
 		},
@@ -226,9 +221,6 @@ func TestTriggerInitializeConditions(t *testing.T) {
 					Status: corev1.ConditionUnknown,
 				}, {
 					Type:   TriggerConditionDependency,
-					Status: corev1.ConditionUnknown,
-				}, {
-					Type:   TriggerConditionOIDCServiceAccountResolved,
 					Status: corev1.ConditionUnknown,
 				}, {
 					Type:   TriggerConditionReady,
@@ -265,7 +257,6 @@ func TestTriggerConditionStatus(t *testing.T) {
 		subscriberResolvedStatus    bool
 		dlsResolvedStatus           bool
 		dependencyAnnotationExists  bool
-		oidcServiceAccountStatus    bool
 		dependencyStatus            corev1.ConditionStatus
 		wantConditionStatus         corev1.ConditionStatus
 	}{{
@@ -276,7 +267,6 @@ func TestTriggerConditionStatus(t *testing.T) {
 		subscriptionCondition:       TestHelper.ReadySubscriptionCondition(),
 		subscriberResolvedStatus:    true,
 		dlsResolvedStatus:           true,
-		oidcServiceAccountStatus:    true,
 		dependencyAnnotationExists:  false,
 		wantConditionStatus:         corev1.ConditionTrue,
 	}, {
@@ -287,7 +277,6 @@ func TestTriggerConditionStatus(t *testing.T) {
 		subscriptionCondition:       TestHelper.ReadySubscriptionCondition(),
 		subscriberResolvedStatus:    true,
 		dlsResolvedStatus:           true,
-		oidcServiceAccountStatus:    true,
 		dependencyAnnotationExists:  false,
 		wantConditionStatus:         corev1.ConditionUnknown,
 	}, {
@@ -297,7 +286,6 @@ func TestTriggerConditionStatus(t *testing.T) {
 		markVirtualServiceExists:    true,
 		subscriptionCondition:       TestHelper.ReadySubscriptionCondition(),
 		subscriberResolvedStatus:    true,
-		oidcServiceAccountStatus:    true,
 		dependencyAnnotationExists:  false,
 		wantConditionStatus:         corev1.ConditionFalse,
 	}, {
@@ -307,7 +295,6 @@ func TestTriggerConditionStatus(t *testing.T) {
 		markVirtualServiceExists:    true,
 		subscriptionCondition:       TestHelper.FalseSubscriptionCondition(),
 		subscriberResolvedStatus:    true,
-		oidcServiceAccountStatus:    true,
 		dependencyAnnotationExists:  false,
 		wantConditionStatus:         corev1.ConditionFalse,
 	}, {
@@ -317,7 +304,6 @@ func TestTriggerConditionStatus(t *testing.T) {
 		markVirtualServiceExists:    true,
 		subscriptionCondition:       TestHelper.ReadySubscriptionCondition(),
 		subscriberResolvedStatus:    false,
-		oidcServiceAccountStatus:    true,
 		dependencyAnnotationExists:  true,
 		dependencyStatus:            corev1.ConditionTrue,
 		wantConditionStatus:         corev1.ConditionFalse,
@@ -330,7 +316,6 @@ func TestTriggerConditionStatus(t *testing.T) {
 		subscriberResolvedStatus:    true,
 		dependencyAnnotationExists:  true,
 		dlsResolvedStatus:           true,
-		oidcServiceAccountStatus:    true,
 		dependencyStatus:            corev1.ConditionUnknown,
 		wantConditionStatus:         corev1.ConditionUnknown,
 	}, {
@@ -341,7 +326,6 @@ func TestTriggerConditionStatus(t *testing.T) {
 		subscriptionCondition:       TestHelper.ReadySubscriptionCondition(),
 		subscriberResolvedStatus:    true,
 		dependencyAnnotationExists:  true,
-		oidcServiceAccountStatus:    true,
 		dependencyStatus:            corev1.ConditionFalse,
 		wantConditionStatus:         corev1.ConditionFalse,
 	}, {
@@ -351,7 +335,6 @@ func TestTriggerConditionStatus(t *testing.T) {
 		markVirtualServiceExists:    false,
 		subscriptionCondition:       TestHelper.FalseSubscriptionCondition(),
 		subscriberResolvedStatus:    false,
-		oidcServiceAccountStatus:    false,
 		dependencyAnnotationExists:  true,
 		dependencyStatus:            corev1.ConditionFalse,
 		wantConditionStatus:         corev1.ConditionFalse,
@@ -363,22 +346,9 @@ func TestTriggerConditionStatus(t *testing.T) {
 		subscriptionCondition:       TestHelper.ReadySubscriptionCondition(),
 		subscriberResolvedStatus:    true,
 		dependencyAnnotationExists:  true,
-		oidcServiceAccountStatus:    true,
 		dlsResolvedStatus:           false,
 		wantConditionStatus:         corev1.ConditionFalse,
-	}, {
-		name:                        "oidc status false",
-		brokerStatus:                TestHelper.ReadyBrokerStatus(),
-		markKubernetesServiceExists: true,
-		markVirtualServiceExists:    true,
-		subscriptionCondition:       TestHelper.ReadySubscriptionCondition(),
-		subscriberResolvedStatus:    true,
-		dlsResolvedStatus:           true,
-		oidcServiceAccountStatus:    false,
-		dependencyAnnotationExists:  false,
-		wantConditionStatus:         corev1.ConditionFalse,
 	}}
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ts := &TriggerStatus{}
@@ -408,11 +378,6 @@ func TestTriggerConditionStatus(t *testing.T) {
 				} else {
 					ts.MarkDependencyFailed("The status of dependency is false", "The status of dependency is unknown: nil")
 				}
-			}
-			if test.oidcServiceAccountStatus {
-				ts.MarkOIDCServiceAccountResolvedSucceeded()
-			} else {
-				ts.MarkOIDCServiceAccountResolvedFailed("Unable to ...", "")
 			}
 			got := ts.GetTopLevelCondition().Status
 			if test.wantConditionStatus != got {
