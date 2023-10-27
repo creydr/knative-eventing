@@ -31,7 +31,9 @@ import (
 
 	"knative.dev/eventing/test/auth/features/oidc"
 	brokerfeatures "knative.dev/eventing/test/rekt/features/broker"
+	sequencefeatures "knative.dev/eventing/test/rekt/features/sequence"
 	"knative.dev/eventing/test/rekt/resources/broker"
+	"knative.dev/eventing/test/rekt/resources/sequence"
 )
 
 func TestBrokerSupportsOIDC(t *testing.T) {
@@ -51,4 +53,22 @@ func TestBrokerSupportsOIDC(t *testing.T) {
 
 	env.TestSet(ctx, t, oidc.AddressableOIDCConformance(broker.GVR(), "Broker", name, env.Namespace()))
 	env.Test(ctx, t, oidc.BrokerSendEventWithOIDCToken())
+}
+
+func TestSequenceSupportsOIDC(t *testing.T) {
+	t.Parallel()
+
+	ctx, env := global.Environment(
+		knative.WithKnativeNamespace(system.Namespace()),
+		knative.WithLoggingConfig,
+		knative.WithTracingConfig,
+		k8s.WithEventListener,
+		environment.Managed(t),
+		environment.WithPollTimings(4*time.Second, 12*time.Minute),
+	)
+
+	name := feature.MakeRandomK8sName("sequence")
+	env.Prerequisite(ctx, t, sequencefeatures.GoesReady(name))
+
+	env.Test(ctx, t, oidc.AddressableHasAudiencePopulated(sequence.GVR(), sequence.GVK().Kind, name, env.Namespace()))
 }
