@@ -33,6 +33,8 @@ import (
 	brokerfeatures "knative.dev/eventing/test/rekt/features/broker"
 	sequencefeatures "knative.dev/eventing/test/rekt/features/sequence"
 	"knative.dev/eventing/test/rekt/resources/broker"
+	"knative.dev/eventing/test/rekt/resources/channel_impl"
+	"knative.dev/eventing/test/rekt/resources/channel_template"
 	"knative.dev/eventing/test/rekt/resources/sequence"
 )
 
@@ -64,11 +66,13 @@ func TestSequenceSupportsOIDC(t *testing.T) {
 		knative.WithTracingConfig,
 		k8s.WithEventListener,
 		environment.Managed(t),
-		environment.WithPollTimings(4*time.Second, 12*time.Minute),
 	)
 
 	name := feature.MakeRandomK8sName("sequence")
-	env.Prerequisite(ctx, t, sequencefeatures.GoesReady(name))
+	env.Prerequisite(ctx, t, sequencefeatures.GoesReady(name, sequence.WithChannelTemplate(channel_template.ChannelTemplate{
+		TypeMeta: channel_impl.TypeMeta(),
+		Spec:     map[string]interface{}{},
+	})))
 
-	env.Test(ctx, t, oidc.AddressableHasAudiencePopulated(sequence.GVR(), sequence.GVK().Kind, name, env.Namespace()))
+	env.Test(ctx, t, oidc.SequenceHasAudienceOfInputChannel(name, env.Namespace(), channel_impl.GVR(), channel_impl.GVK().Kind))
 }
