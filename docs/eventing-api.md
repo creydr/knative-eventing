@@ -728,6 +728,20 @@ DeliverySpec
 <p>DeliverySpec contains options controlling the event delivery</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>Auth</code><br/>
+<em>
+<a href="https://pkg.go.dev/knative.dev/pkg/apis/duck/v1#AuthStatus">
+knative.dev/pkg/apis/duck/v1.AuthStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Auth contains the OIDC auth</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="duck.knative.dev/v1.SubscriberStatus">SubscriberStatus

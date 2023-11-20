@@ -74,3 +74,10 @@ rules:
       - get
       - list
       - watch
+  # Create OIDC tokens
+  - apiGroups:
+      - 
+    resources:
+      - "serviceaccounts/token"
+    verbs:
+      - create

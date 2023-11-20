@@ -67,6 +67,9 @@ type SubscriberSpec struct {
 	// DeliverySpec contains options controlling the event delivery
 	// +optional
 	Delivery *DeliverySpec `json:"delivery,omitempty"`
+	// Auth contains the OIDC auth
+	// +optional
+	Auth *duckv1.AuthStatus `json:"auth,omitempty"`
 }
 
 // SubscriberStatus defines the status of a single subscriber to a Channel.
