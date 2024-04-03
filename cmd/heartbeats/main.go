@@ -126,11 +126,6 @@ func main() {
 		ceOverrides = &overrides
 	}
 
-	oidcToken, err := os.ReadFile("/oidc/token")
-	if err != nil {
-		log.Printf("Failed to read OIDC token, client will not send Authorization header: %v", err)
-	}
-
 	conf, err := config.JSONToTracingConfig(env.TracingConfig)
 	if err != nil {
 		log.Printf("Failed to read tracing config, using the no-op default: %v", err)
@@ -212,12 +207,19 @@ func main() {
 			log.Printf("failed to set cloudevents msg: %s", err.Error())
 		}
 
+		// reload the OIDC token on each tick, since it could have been refreshed
+		oidcToken, err := os.ReadFile("/oidc/token")
+		if err != nil {
+			log.Printf("Failed to read OIDC token, client will not send Authorization header: %v", err)
+		}
+
+		ctxTick := ctx
 		if oidcToken != nil {
-			ctx = withAuthHeader(ctx, oidcToken)
+			ctxTick = withAuthHeader(ctx, oidcToken)
 		}
 
 		log.Printf("sending cloudevent to %s", sink)
-		if res := c.Send(ctx, event); !cloudevents.IsACK(res) {
+		if res := c.Send(ctxTick, event); !cloudevents.IsACK(res) {
 			log.Printf("failed to send cloudevent: %v", res)
 		}
 
