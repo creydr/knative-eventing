@@ -1,0 +1,54 @@
+kind: Pipeline
+apiVersion: tekton.dev/v1beta1
+metadata:
+  name: example-pipeline
+spec:
+  params:
+    - description: 'Snapshot of the application'
+      name: SNAPSHOT
+      default: '{"components": [{"name":"test-app", "containerImage": "quay.io/example/repo:latest"}]}'
+      type: string
+    - description: 'Namespace where the application is running'
+      name: NAMESPACE
+      default: "default"
+      type: string
+  workspaces:
+    - name: cluster-credentials
+      optional: true
+  tasks:
+    - name: task-1
+      description: Run rekt e2e tests
+      params:
+        - name: SNAPSHOT
+          value: $(params.SNAPSHOT)
+        - name: NAMESPACE
+          value: $(params.NAMESPACE)
+      workspaces:
+        - name: cluster-credentials
+          optional: true
+      taskSpec:
+        params:
+          - name: SNAPSHOT
+          - name: NAMESPACE
+        results:
+          - name: TEST_OUTPUT
+            description: Test output
+        workspaces:
+          - name: cluster-credentials
+            workspace: cluster-credentials
+        steps:
+          - image: registry.redhat.io/openshift4/ose-cli:latest
+            env:
+              - name: SNAPSHOT
+                value: $(params.SNAPSHOT)
+              - name: NAMESPACE
+                value: $(params.NAMESPACE)
+            script: |
+              export KUBECONFIG=$(workspaces.cluster-credentials.path)/kubeconfig
+              
+              pwd
+              ls
+              
+              ./test/e2e-rekt-tests.sh
+              
+              echo -n "$?" | tee $(results.TEST_OUTPUT.path)
