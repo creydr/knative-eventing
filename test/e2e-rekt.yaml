@@ -47,7 +47,11 @@ spec:
               export KUBECONFIG=$(workspaces.cluster-credentials.path)/kubeconfig
               
               pwd
-              ls
+              
+              ls -R /tekton
+              echo
+              echo
+              ls -R /workspace
               
               ./test/e2e-rekt-tests.sh
               
