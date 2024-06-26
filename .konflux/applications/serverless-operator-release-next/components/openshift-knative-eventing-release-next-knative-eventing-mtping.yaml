@@ -1,0 +1,17 @@
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: Component
+metadata:
+  annotations:
+    image.redhat.com/generate: "true"
+    appstudio.openshift.io/pac-provision: request
+  name: knative-eventing-mtping
+spec:
+  componentName: knative-eventing-mtping
+  application: serverless-operator-release-next
+   
+  source:
+    git:
+      url: https://github.com/openshift-knative/eventing.git
+      context: 
+      dockerfileUrl: openshift/ci-operator/knative-images/mtping/Dockerfile
+      revision: release-next

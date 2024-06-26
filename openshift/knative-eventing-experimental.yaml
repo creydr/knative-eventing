@@ -1,0 +1,8 @@
+spec:
+  config:
+    config-features:
+      kreference-group: "enabled"
+      delivery-retryafter: "enabled"
+      delivery-timeout: "enabled"
+      new-trigger-filters: "enabled"
+      eventtype-auto-create: "enabled"

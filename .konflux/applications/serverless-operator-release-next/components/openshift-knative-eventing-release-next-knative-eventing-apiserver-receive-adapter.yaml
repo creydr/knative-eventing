@@ -1,0 +1,17 @@
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: Component
+metadata:
+  annotations:
+    image.redhat.com/generate: "true"
+    appstudio.openshift.io/pac-provision: request
+  name: knative-eventing-apiserver-receive-adapter
+spec:
+  componentName: knative-eventing-apiserver-receive-adapter
+  application: serverless-operator-release-next
+   
+  source:
+    git:
+      url: https://github.com/openshift-knative/eventing.git
+      context: 
+      dockerfileUrl: openshift/ci-operator/knative-images/apiserver_receive_adapter/Dockerfile
+      revision: release-next
