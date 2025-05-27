@@ -81,6 +81,8 @@ func (s *ServerManager) StartServers(ctx context.Context) error {
 		}
 	}()
 
+	fmt.Println("server started and running")
+
 	select {
 	case err := <-errCh:
 		return err
@@ -91,6 +93,7 @@ func (s *ServerManager) StartServers(ctx context.Context) error {
 
 func (s *ServerManager) httpHandler() http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		fmt.Println("http handler called")
 		flags := s.featureStore.Load()
 		if flags.IsStrictTransportEncryption() {
 			// As flag updates are eventually consistent across all components,
@@ -99,12 +102,14 @@ func (s *ServerManager) httpHandler() http.Handler {
 			response.WriteHeader(http.StatusNotFound)
 			return
 		}
+		fmt.Println("continue...")
 		s.handler.ServeHTTP(response, request)
 	})
 }
 
 func (s *ServerManager) httpsHandler() http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		fmt.Println("https handler called")
 		flags := s.featureStore.Load()
 		if flags.IsDisabledTransportEncryption() {
 			// As flag updates are eventually consistent across all components,
@@ -113,6 +118,7 @@ func (s *ServerManager) httpsHandler() http.Handler {
 			response.WriteHeader(http.StatusNotFound)
 			return
 		}
+		fmt.Println("continue...")
 		s.handler.ServeHTTP(response, request)
 	})
 }
