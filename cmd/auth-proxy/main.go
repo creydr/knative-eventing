@@ -70,13 +70,13 @@ type envConfig struct {
 }
 
 type Handler struct {
-	k8s          kubernetes.Interface
-	lister       sinkslister.IntegrationSinkLister
-	withContext  func(ctx context.Context) context.Context
-	authVerifier *auth.Verifier
-	httpProxy    *httputil.ReverseProxy
-	httpsProxy   *httputil.ReverseProxy
-	ref          types.NamespacedName
+	k8s                            kubernetes.Interface
+	integrationSinkNamespaceLister sinkslister.IntegrationSinkNamespaceLister
+	withContext                    func(ctx context.Context) context.Context
+	authVerifier                   *auth.Verifier
+	httpProxy                      *httputil.ReverseProxy
+	httpsProxy                     *httputil.ReverseProxy
+	ref                            types.NamespacedName
 }
 
 func main() {
@@ -116,9 +116,9 @@ func main() {
 	featureStore.WatchConfigs(configMapWatcher)
 
 	handler := &Handler{
-		k8s:          kubeclient.Get(ctx),
-		lister:       integrationsink.Get(ctx).Lister(),
-		authVerifier: auth.NewVerifier(ctx, eventpolicyinformer.Get(ctx).Lister(), trustBundleConfigMapLister, configMapWatcher),
+		k8s:                            kubeclient.Get(ctx),
+		integrationSinkNamespaceLister: integrationsink.Get(ctx).Lister().IntegrationSinks(env.IntegrationSinkNamespace),
+		authVerifier:                   auth.NewVerifier(ctx, eventpolicyinformer.Get(ctx).Lister(), trustBundleConfigMapLister, configMapWatcher),
 		ref: types.NamespacedName{
 			Name:      env.IntegrationSinkName,
 			Namespace: env.IntegrationSinkNamespace,
@@ -159,7 +159,7 @@ func main() {
 	}
 
 	// After we started the informers, we can read our IntegrationSink CR and set up the proxies
-	integrationSink, err := handler.lister.IntegrationSinks(env.IntegrationSinkNamespace).Get(env.IntegrationSinkName)
+	integrationSink, err := handler.integrationSinkNamespaceLister.Get(env.IntegrationSinkName)
 	if err != nil {
 		logger.Fatal("Failed to get integration sink", zap.Error(err))
 	}
@@ -194,7 +194,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Debug("Handling request", zap.String("URI", r.RequestURI))
 
-	integrationSink, err := h.lister.IntegrationSinks(h.ref.Namespace).Get(h.ref.Name)
+	integrationSink, err := h.integrationSinkNamespaceLister.Get(h.ref.Name)
 	if err != nil {
 		logger.Warn("Failed to retrieve integration sink", zap.String("ref", h.ref.String()), zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
