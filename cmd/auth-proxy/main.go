@@ -17,6 +17,8 @@ package main
 
 import (
 	"context"
+	"net"
+
 	//nolint:gosec
 	"crypto/tls"
 	"fmt"
@@ -26,31 +28,32 @@ import (
 	"net/url"
 
 	"github.com/kelseyhightower/envconfig"
-	"knative.dev/eventing/pkg/certificates"
-	configmapinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap/filtered"
-	filteredFactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
-
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+	cmdbroker "knative.dev/eventing/cmd/broker"
+	"knative.dev/eventing/pkg/apis/feature"
+	"knative.dev/eventing/pkg/auth"
+	"knative.dev/eventing/pkg/certificates"
+	eventpolicyinformer "knative.dev/eventing/pkg/client/injection/informers/eventing/v1alpha1/eventpolicy"
+	"knative.dev/eventing/pkg/client/injection/informers/sinks/v1alpha1/integrationsink"
+	sinkslister "knative.dev/eventing/pkg/client/listers/sinks/v1alpha1"
+	"knative.dev/eventing/pkg/eventingtls"
+	"knative.dev/eventing/pkg/kncloudevents"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	configmapinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap/filtered"
+	filteredFactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
 	configmap "knative.dev/pkg/configmap/informer"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
 	secretinformer "knative.dev/pkg/injection/clients/namespacedkube/informers/core/v1/secret"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
+	"knative.dev/pkg/network"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
-
-	cmdbroker "knative.dev/eventing/cmd/broker"
-	"knative.dev/eventing/pkg/apis/feature"
-	"knative.dev/eventing/pkg/auth"
-	eventpolicyinformer "knative.dev/eventing/pkg/client/injection/informers/eventing/v1alpha1/eventpolicy"
-	"knative.dev/eventing/pkg/client/injection/informers/sinks/v1alpha1/integrationsink"
-	sinkslister "knative.dev/eventing/pkg/client/listers/sinks/v1alpha1"
-	"knative.dev/eventing/pkg/eventingtls"
-	"knative.dev/eventing/pkg/kncloudevents"
 )
 
 const component = "auth-proxy"
@@ -112,18 +115,10 @@ func main() {
 	featureStore := feature.NewStore(logging.FromContext(ctx).Named("feature-config-store"))
 	featureStore.WatchConfigs(configMapWatcher)
 
-	// setup reverse proxy (we need one which forwards to HTTP and one which forwards to HTTPS)
-	httpProxy, httpsProxy, err := reverseProxies(env)
-	if err != nil {
-		log.Fatalf("Failed to create proxies: %v", err)
-	}
-
 	handler := &Handler{
 		k8s:          kubeclient.Get(ctx),
 		lister:       integrationsink.Get(ctx).Lister(),
 		authVerifier: auth.NewVerifier(ctx, eventpolicyinformer.Get(ctx).Lister(), trustBundleConfigMapLister, configMapWatcher),
-		httpProxy:    httpProxy,
-		httpsProxy:   httpsProxy,
 		ref: types.NamespacedName{
 			Name:      env.IntegrationSinkName,
 			Namespace: env.IntegrationSinkNamespace,
@@ -163,6 +158,27 @@ func main() {
 		logger.Fatal("Failed to start informers", zap.Error(err))
 	}
 
+	// After we started the informers, we can read our IntegrationSink CR and set up the proxies
+	integrationSink, err := handler.lister.IntegrationSinks(env.IntegrationSinkNamespace).Get(env.IntegrationSinkName)
+	if err != nil {
+		logger.Fatal("Failed to get integration sink", zap.Error(err))
+	}
+
+	sinkAddress := eventingtls.GetHttpsAddress(integrationSink.Status.Addresses)
+	if sinkAddress == nil {
+		// no https address set, so take the one in address field
+		sinkAddress = integrationSink.Status.Address
+	}
+
+	// setup reverse proxy (we need one which forwards to HTTP and one which forwards to HTTPS)
+	httpProxy, httpsProxy, err := reverseProxies(sinkAddress, trustBundleConfigMapLister, env)
+	if err != nil {
+		log.Fatalf("Failed to create proxies: %v", err)
+	}
+
+	handler.httpProxy = httpProxy
+	handler.httpsProxy = httpsProxy
+
 	// Start the servers
 	logger.Info("Starting...")
 	if err = sm.StartServers(ctx); err != nil {
@@ -200,7 +216,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func reverseProxies(env envConfig) (*httputil.ReverseProxy, *httputil.ReverseProxy, error) {
+func reverseProxies(addressable *duckv1.Addressable, trustBundleConfigMapLister corev1listers.ConfigMapNamespaceLister, env envConfig) (*httputil.ReverseProxy, *httputil.ReverseProxy, error) {
 	httpTarget := fmt.Sprintf("http://%s:%d", env.TargetHost, env.TargetHTTPPort)
 	httpsTarget := fmt.Sprintf("https://%s:%d", env.TargetHost, env.TargetHTTPSPort)
 
@@ -217,6 +233,33 @@ func reverseProxies(env envConfig) (*httputil.ReverseProxy, *httputil.ReversePro
 	// Create reverse proxies
 	httpProxy := httputil.NewSingleHostReverseProxy(httpTargetURL)
 	httpsProxy := httputil.NewSingleHostReverseProxy(httpsTargetURL)
+
+	httpsProxy.Director = func(req *http.Request) {
+		// in case of https requests, we need to rewrite the request URL/host, as otherwise, we get a certificate validation error
+		req.URL.Scheme = "https"
+		req.URL.Host = httpsTargetURL.Host
+		req.Host = addressable.URL.Host
+	}
+
+	if eventingtls.IsHttpsSink(addressable.URL.String()) {
+		var base = http.DefaultTransport.(*http.Transport).Clone()
+		clientConfig := eventingtls.ClientConfig{
+			CACerts:                    addressable.CACerts,
+			TrustBundleConfigMapLister: trustBundleConfigMapLister,
+		}
+
+		base.DialTLSContext = func(ctx context.Context, net, addr string) (net.Conn, error) {
+			tlsConfig, err := eventingtls.GetTLSClientConfig(clientConfig)
+			if err != nil {
+				return nil, err
+			}
+			tlsConfig.ServerName = addressable.URL.Host
+
+			return network.DialTLSWithBackOff(ctx, net, fmt.Sprintf("%s:%d", env.TargetHost, env.TargetHTTPSPort), tlsConfig)
+		}
+
+		httpsProxy.Transport = base
+	}
 
 	return httpProxy, httpsProxy, nil
 }
@@ -236,3 +279,43 @@ func getServerTLSConfig(ctx context.Context, ref types.NamespacedName) (*tls.Con
 	serverTLSConfig.GetCertificate = eventingtls.GetCertificateFromSecret(ctx, secretinformer.Get(ctx), kubeclient.Get(ctx), secret)
 	return eventingtls.GetTLSServerConfig(serverTLSConfig)
 }
+
+/*func main() {
+	//ctx := signals.NewContext()
+
+	var env envConfig
+	if err := envconfig.Process("", &env); err != nil {
+		log.Fatal("Failed to process env var", zap.Error(err))
+	}
+
+	// Parse the target URL
+	targetURL, err := url.Parse(fmt.Sprintf("http://%s:%d", env.TargetHost, env.TargetHTTPPort))
+	if err != nil {
+		log.Fatalf("Failed to parse target URL: %v", err)
+	}
+
+	log.Printf("Target URL: %s", targetURL)
+
+	// Create a reverse proxy
+	proxy := httputil.NewSingleHostReverseProxy(targetURL)
+
+	// Modify request before sending to the target (optional)
+	proxy.ModifyResponse = func(resp *http.Response) error {
+		// You can modify the response here if needed
+		return nil
+	}
+
+	// Start the server
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("request uri: ", r.RequestURI)
+
+		// Optionally modify the request here
+		proxy.ServeHTTP(w, r)
+	})
+
+	log.Printf("Starting proxy server on :%d", env.ProxyHTTPPort)
+	err = http.ListenAndServe(fmt.Sprintf(":%d", env.ProxyHTTPPort), nil)
+	if err != nil {
+		log.Fatalf("Server failed: %v", err)
+	}
+}*/

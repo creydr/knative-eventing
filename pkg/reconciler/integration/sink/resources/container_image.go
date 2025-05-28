@@ -29,6 +29,7 @@ import (
 	"knative.dev/eventing/pkg/certificates"
 	"knative.dev/eventing/pkg/reconciler/integration"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/system"
 )
 
 func MakeDeploymentSpec(sink *v1alpha1.IntegrationSink, featureFlags feature.Flags) *appsv1.Deployment {
@@ -69,20 +70,67 @@ func MakeDeploymentSpec(sink *v1alpha1.IntegrationSink, featureFlags feature.Fla
 					},
 					Containers: []corev1.Container{
 						{
+							Name:            "auth-proxy",
+							Image:           "quay.io/creydr/tests/auth-proxy",
+							ImagePullPolicy: corev1.PullAlways,
+							Ports: []corev1.ContainerPort{
+								{
+									ContainerPort: 3128,
+									Protocol:      corev1.ProtocolTCP,
+									Name:          "proxy-http",
+								},
+								{
+									ContainerPort: 3129,
+									Protocol:      corev1.ProtocolTCP,
+									Name:          "proxy-https",
+								},
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "TARGET_HTTP_PORT",
+									Value: "8080",
+								},
+								{
+									Name:  "TARGET_HTTPS_PORT",
+									Value: "8443",
+								},
+								{
+									Name:  "PROXY_HTTP_PORT",
+									Value: "3128",
+								},
+								{
+									Name:  "PROXY_HTTPS_PORT",
+									Value: "3129",
+								},
+								{
+									Name:  "SYSTEM_NAMESPACE",
+									Value: system.Namespace(),
+								},
+								{
+									Name:  "INTEGRATION_SINK_NAME",
+									Value: sink.Name,
+								},
+								{
+									Name:  "INTEGRATION_SINK_NAMESPACE",
+									Value: sink.Namespace,
+								},
+							},
+						},
+						{
 							Name:            "sink",
 							Image:           selectImage(sink),
 							ImagePullPolicy: corev1.PullIfNotPresent,
-							Ports: []corev1.ContainerPort{
-								{
-									ContainerPort: 8080,
-									Protocol:      corev1.ProtocolTCP,
-									Name:          "http",
-								},
-								{
-									ContainerPort: 8443,
-									Protocol:      corev1.ProtocolTCP,
-									Name:          "https",
-								}},
+							/*							Ports: []corev1.ContainerPort{
+														{
+															ContainerPort: 8080,
+															Protocol:      corev1.ProtocolTCP,
+															Name:          "http",
+														},
+														{
+															ContainerPort: 8443,
+															Protocol:      corev1.ProtocolTCP,
+															Name:          "https",
+														}},*/
 							Env: makeEnv(sink, featureFlags),
 							VolumeMounts: []corev1.VolumeMount{
 								{
@@ -122,13 +170,13 @@ func MakeService(sink *v1alpha1.IntegrationSink) *corev1.Service {
 					Name:       "http",
 					Protocol:   corev1.ProtocolTCP,
 					Port:       80,
-					TargetPort: intstr.IntOrString{IntVal: 8080},
+					TargetPort: intstr.IntOrString{StrVal: "proxy-http"},
 				},
 				{
 					Name:       "https",
 					Protocol:   corev1.ProtocolTCP,
 					Port:       443,
-					TargetPort: intstr.IntOrString{IntVal: 8443},
+					TargetPort: intstr.IntOrString{StrVal: "proxy-https"},
 				},
 			},
 		},
