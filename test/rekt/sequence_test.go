@@ -21,6 +21,7 @@ package rekt
 
 import (
 	"testing"
+	"time"
 
 	"knative.dev/reconciler-test/pkg/feature"
 
@@ -111,6 +112,7 @@ func TestSequenceSupportsAuthZ(t *testing.T) {
 		k8s.WithEventListener,
 		environment.Managed(t),
 		eventshub.WithTLS(t),
+		environment.WithPollTimings(5*time.Second, 4*time.Minute),
 	)
 
 	name := feature.MakeRandomK8sName("sequence")

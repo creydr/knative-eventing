@@ -21,6 +21,7 @@ package rekt
 
 import (
 	"testing"
+	"time"
 
 	"knative.dev/eventing/test/rekt/features/authz"
 
@@ -105,6 +106,7 @@ func TestJobSinkSupportsAuthZ(t *testing.T) {
 		k8s.WithEventListener,
 		eventshub.WithTLS(t),
 		environment.Managed(t),
+		environment.WithPollTimings(5*time.Second, 4*time.Minute),
 	)
 
 	name := feature.MakeRandomK8sName("jobsink")

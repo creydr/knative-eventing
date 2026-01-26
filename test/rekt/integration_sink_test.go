@@ -93,6 +93,7 @@ func TestIntegrationSinkSupportsAuthZ(t *testing.T) {
 		k8s.WithEventListener,
 		eventshub.WithTLS(t),
 		environment.Managed(t),
+		environment.WithPollTimings(5*time.Second, 4*time.Minute),
 	)
 
 	name := feature.MakeRandomK8sName("integrationsink")
